@@ -209,7 +209,6 @@ Last used: ${last || 'None'}`,
         cancel: "Cancel",
         apply: "Apply",
         updateAvailable: "🎉 Update Available!",
-        updateCurrent: "You're on <strong>v3.6.3</strong>.",
         updateNew: vers => `Version <strong>v${vers}</strong> is out.`,
         updateNow: "Update Now",
         addCharacter: "Add Character",
@@ -3558,7 +3557,6 @@ settingsBtn.onclick = () => {
                 notice.innerHTML = `
                     <b>🎉 Update Available!</b><br>
                     Version <strong>v${latestVersion}</strong> is out.<br>
-                    You're on <strong>v3.6.3</strong>.<br>
                     <button id="update-now" style="
                         margin-top: 10px;
                         padding: 8px 14px;
