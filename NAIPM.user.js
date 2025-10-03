@@ -3515,6 +3515,72 @@ settingsBtn.onclick = () => {
     } else {
         createPanelOnce();
     }
+        // Auto update functionality - PINDAHKAN KE SINI
+    function compareVersions(v1, v2) {
+        const a = v1.split('.').map(Number);
+        const b = v2.split('.').map(Number);
+        for (let i = 0; i < Math.max(a.length, b.length); i++) {
+            const num1 = a[i] || 0;
+            const num2 = b[i] || 0;
+            if (num1 > num2) return 1;
+            if (num1 < num2) return -1;
+        }
+        return 0;
+    }
+
+    setTimeout(async () => {
+        try {
+            const res = await fetch('https://raw.githubusercontent.com/mikojiy/NAI-Profile-Manager/main/NAIPM.user.js?t=' + Date.now(), { cache: 'no-cache' });
+            const text = await res.text();
+            const match = text.match(/@version\s+([0-9.]+)/);
+            if (!match) return;
+            const latestVersion = match[1];
+            const currentVersion = "2.5";
+            const comparison = compareVersions(latestVersion, currentVersion);
+            if (comparison > 0 && !document.getElementById('nai-update-notice')) {
+                const notice = document.createElement('div');
+                notice.id = 'nai-update-notice';
+                Object.assign(notice.style, {
+                    position: 'fixed',
+                    top: '30px',
+                    right: '30px',
+                    zIndex: '99999',
+                    background: '#1e40af',
+                    color: 'white',
+                    padding: '16px 20px',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                    maxWidth: '380px',
+                    fontFamily: 'sans-serif',
+                    fontSize: '14px',
+                    lineHeight: '1.5'
+                });
+                notice.innerHTML = `
+                    <b>🎉 Update Available!</b><br>
+                    Version <strong>v${latestVersion}</strong> is out.<br>
+                    You're on <strong>v3.6.3</strong>.<br>
+                    <button id="update-now" style="
+                        margin-top: 10px;
+                        padding: 8px 14px;
+                        background: white;
+                        color: #1e40af;
+                        border: none;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        cursor: pointer;
+                    ">Update Now</button>
+                `;
+                document.body.appendChild(notice);
+                document.getElementById('update-now').onclick = () => {
+                    window.open('https://raw.githubusercontent.com/mikojiy/NAI-Profile-Manager/main/NAIPM.user.js', '_blank');
+                    notice.remove();
+                };
+            }
+        } catch (e) {
+            console.warn('Auto update check failed:', e);
+        }
+    }, 3000);
+
     window.addEventListener('popstate', () => {
         setTimeout(() => {
             const select = document.querySelector("#nai-profiles-panel select");
@@ -3816,71 +3882,5 @@ if (document.readyState === "loading") {
 } else {
     addImageZoomFeature();
 }
-
-    // Auto update functionality
-    function compareVersions(v1, v2) {
-        const a = v1.split('.').map(Number);
-        const b = v2.split('.').map(Number);
-        for (let i = 0; i < Math.max(a.length, b.length); i++) {
-            const num1 = a[i] || 0;
-            const num2 = b[i] || 0;
-            if (num1 > num2) return 1;
-            if (num1 < num2) return -1;
-        }
-        return 0;
-    }
-
-    setTimeout(async () => {
-        try {
-            const res = await fetch('https://raw.githubusercontent.com/mikojiy/naipm-test/main/NAIPM.user.js?t=' + Date.now(), { cache: 'no-cache' });
-            const text = await res.text();
-            const match = text.match(/@version\s+([0-9.]+)/);
-            if (!match) return;
-            const latestVersion = match[1];
-            const currentVersion = "2.5"; // Updated version
-            const comparison = compareVersions(latestVersion, currentVersion);
-            if (comparison > 0 && !document.getElementById('nai-update-notice')) {
-                const notice = document.createElement('div');
-                notice.id = 'nai-update-notice';
-                Object.assign(notice.style, {
-                    position: 'fixed',
-                    top: '30px',
-                    right: '30px',
-                    zIndex: '99999',
-                    background: '#1e40af',
-                    color: 'white',
-                    padding: '16px 20px',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-                    maxWidth: '380px',
-                    fontFamily: 'sans-serif',
-                    fontSize: '14px',
-                    lineHeight: '1.5'
-                });
-                notice.innerHTML = `
-                    <b>${t('updateAvailable')}</b><br>
-                    ${t('updateNew')(latestVersion)}<br>
-                    ${t('updateCurrent')}<br>
-                    <button id="update-now" style="
-                        margin-top: 10px;
-                        padding: 8px 14px;
-                        background: white;
-                        color: #1e40af;
-                        border: none;
-                        border-radius: 8px;
-                        font-weight: bold;
-                        cursor: pointer;
-                    ">${t('updateNow')}</button>
-                `;
-                document.body.appendChild(notice);
-                document.getElementById('update-now').onclick = () => {
-                    window.open('https://raw.githubusercontent.com/mikojiy/naipm-test/main/NAIPM.user.js', '_blank');
-                    notice.remove();
-                };
-            }
-        } catch (e) {
-            console.warn('Auto update check failed:', e);
-        }
-    }, 3000);
 
 })();
