@@ -2,11 +2,11 @@
 // @name         NovelAI Prompt Profiles
 // @namespace    http://tampermonkey.net/
 // @author       Mikojiy
-// @updateURL    https://raw.githubusercontent.com/mikojiy/naipm-test/main/NAIPM.user.js
-// @downloadURL  https://raw.githubusercontent.com/mikojiy/naipm-test/main/NAIPM.user.js
-// @version      2.5
+// @updateURL    https://raw.githubusercontent.com/mikojiy/NAI-Profile-Manager/main/NAIPM.user.js
+// @downloadURL  https://raw.githubusercontent.com/mikojiy/NAI-Profile-Manager/main/NAIPM.user.js
+// @version      3.1
 // @description  Prompt profiles made easy for NovelAI.
-// @match        https://novelai.github.io/image
+// @match        https://novelai.net/image
 // @grant        none
 // ==/UserScript==
 // ── Script Info ─────────────────────────────
@@ -15,9 +15,21 @@
 
 (function () {
     'use strict';
+    let newBtn, saveBtn, renameBtn, deleteBtn, swapBtn, clearAllBtn;
+    let overrideBtn, appendBtn;
+    let addCharBtn, addCharDBBtn, organizeCharDBBtn;
+    let tabButtons, characterTabBtn;
+    let danbooruBtn, e621Btn, backupBtn, restoreBtn;
+    let searchDiv, searchInput;
+    let panel;
+
     document.documentElement.classList.add('dark');
     document.body.classList.add('dark');
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+
+    let panelStepsInput = null;
+    let panelGuidanceInput = null;
+
     const mobileFixStyle = document.createElement('style');
     mobileFixStyle.textContent = `
       /* Pastikan semua input dapat dipilih dan memunculkan keyboard di mobile */
@@ -42,7 +54,7 @@
         transform: translateZ(0) !important;
       }
 
-      /* Perbaiki responsive UI */
+      /* Perbaikan responsive UI */
       @media (max-width: 768px) {
         .nai-responsive-text {
           font-size: 12px !important;
@@ -68,6 +80,36 @@
 
         .mobile-action-buttons button {
           flex: 1 !important;
+        }
+
+        /* Perbaikan tampilan tab di mobile */
+        .tab-buttons {
+          flex-wrap: nowrap !important;
+          overflow-x: auto !important;
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+
+        .tab-buttons::-webkit-scrollbar {
+          display: none !important;
+        }
+
+        .tab-buttons button {
+          min-width: 60px !important;
+          max-width: 80px !important;
+          flex: 1 !important;
+        }
+
+        /* Pastikan utility tab terlihat di mobile */
+        #tab-utility {
+          width: 100% !important;
+          overflow: visible !important;
+        }
+
+        /* Perbaikan tampilan tombol utility di mobile */
+        .utility-button-row {
+          width: 100% !important;
+          overflow: visible !important;
         }
       }
 
@@ -122,177 +164,931 @@
           font-size: 12px !important;
         }
       }
+
+      /* Metadata Remover Button Styles */
+      .metadata-remover-btn {
+        background-color: #8b5cf6 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 6px !important;
+        padding: 6px 12px !important;
+        font-size: 12px !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        margin-top: 6px !important;
+        transition: background-color 0.2s !important;
+      }
+
+      .metadata-remover-btn:hover {
+        background-color: #7c3aed !important;
+      }
+
+      .metadata-remover-btn:active {
+        background-color: #6d28d9 !important;
+      }
+
+      /* Keyboard Shortcuts Styles */
+      .shortcut-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        padding: 8px;
+        border-radius: 6px;
+        background-color: #334155;
+      }
+
+      .shortcut-label {
+        font-size: 13px;
+        flex: 1;
+      }
+
+      .shortcut-input {
+        width: 120px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid #475569;
+        background: #1e293b;
+        color: #e2e8f0;
+        font-size: 12px;
+        text-align: center;
+      }
+
+      .shortcut-warning {
+        color: #f59e0b;
+        font-size: 11px;
+        margin-top: 4px;
+        display: none;
+      }
+
+      .shortcut-conflict {
+        border: 1px solid #f59e0b !important;
+      }
+
+      /* Watermark Preview Styles */
+      .watermark-preview-container {
+        margin-top: 12px;
+        padding: 8px;
+        border: 1px solid #475569;
+        border-radius: 6px;
+        background-color: #1e293b;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .watermark-preview-title {
+        font-size: 13px;
+        margin-bottom: 8px;
+        color: #e2e8f0;
+      }
+
+      .watermark-preview-canvas {
+        border: 1px solid #475569;
+        border-radius: 4px;
+        max-width: 100%;
+        height: auto;
+      }
+
+      /* Image Upload Styles */
+      .image-upload-container {
+        margin-bottom: 12px;
+      }
+
+      .image-upload-label {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 4px;
+        opacity: 0.9;
+      }
+
+      .image-upload-button {
+        display: inline-block;
+        padding: 6px 12px;
+        background-color: #3b82f6;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background-color 0.2s;
+      }
+
+      .image-upload-button:hover {
+        background-color: #2563eb;
+      }
+
+      .image-upload-input {
+        display: none;
+      }
+
+      .uploaded-image-preview {
+        margin-top: 8px;
+        max-width: 100px;
+        max-height: 100px;
+        border: 1px solid #475569;
+        border-radius: 4px;
+      }
+
+      .watermark-type-toggle {
+        display: flex;
+        margin-bottom: 12px;
+        background-color: #334155;
+        border-radius: 6px;
+        padding: 4px;
+      }
+
+      .watermark-type-option {
+        flex: 1;
+        padding: 8px;
+        text-align: center;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 13px;
+        transition: background-color 0.2s;
+      }
+
+      .watermark-type-option.active {
+        background-color: #3b82f6;
+        color: white;
+      }
+
+      .watermark-size-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .watermark-size-label {
+        font-size: 13px;
+        min-width: 80px;
+      }
+
+      .watermark-size-slider {
+        flex: 1;
+        height: 4px;
+        border-radius: 2px;
+        background: #475569;
+        outline: none;
+        -webkit-appearance: none;
+      }
+
+      .watermark-size-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+      }
+
+      .watermark-size-slider::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+        border: none;
+      }
+
+      .watermark-size-value {
+        font-size: 13px;
+        min-width: 40px;
+        text-align: right;
+      }
     `;
     document.head.appendChild(mobileFixStyle);
+const checkboxFixStyle = document.createElement('style');
+checkboxFixStyle.textContent = `
+  /* Perbaikan untuk checkbox di pengaturan watermark */
+  .watermark-checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0;
+  }
 
-    const STRINGS = {
-        ready: "Ready to go 🎯",
-        profilesTitle: "Prompt Profiles",
-        manageGlobalVars: "Manage Global Variables",
-        manageWildcards: "Manage Wildcards",
-        settingsBlacklist: "Settings & Blacklist",
-        positivePlaceholder: "Positive prompt...",
-        negativePlaceholder: "Negative prompt (Undesired Content)...",
-        override: "🔄 Override",
-        append: "➕ Append",
-        newProfile: "🆕 New",
-        saveProfile: "💾 Save",
-        renameProfile: "✏️ Rename",
-        deleteProfile: "🗑️ Delete",
-        clearAll: "💥 Clear",
-        swapPosition: "🔁 Swap Pos",
-        danbooru: "🔍 Danbooru",
-        fullBackup: "📦 Full Backup",
-        fullRestore: "🔁 Full Restore",
-        searchProfiles: "🔍 Search",
-        noProfiles: "No profiles yet",
-        enterProfileName: "Name your new profile:",
-        profileExists: name => `❌ "${name}" already exists.`,
-        createdProfile: name => `✅ Created "${name}".`,
-        pickProfileFirst: "❌ Pick a profile first.",
-        savedProfile: name => `✔️ "${name}" saved.`,
-        renamePrompt: "New name:",
-        renameTaken: name => `❌ "${name}" already taken.`,
-        renamed: (old, neu) => `🔄 Renamed "${old}" → "${neu}"`,
-        confirmDelete: name => `Delete "${name}"?`,
-        deletedSwitched: (del, newp) => `🗑️ Deleted "${del}". Switched to "${newp}".`,
-        deletedNone: name => `🗑️ Deleted "${name}". No profiles left.`,
-        confirmClearAll: "⚠️ Delete ALL profiles? This can't be undone.",
-        clearedAll: "🧹 Cleared everything.",
-        swapPrompt: "Swap with which profile number?",
-        invalidPos: "❌ Invalid position.",
-        alreadyThere: "ℹ️ Already there.",
-        swapped: (pos1, pos2) => `✅ Swapped profile #${pos1} with profile #${pos2}.`,
-        danbooruPrompt: (last) => `📌 Pull prompt from Danbooru
+  .watermark-checkbox {
+    position: relative;
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0; /* Mencegah checkbox menyusut */
+  }
+
+  .watermark-checkbox input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+
+  .watermark-checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 20px;
+    width: 20px;
+    background-color: #334155;
+    border: 1px solid #475569;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .watermark-checkbox:hover input ~ .watermark-checkmark {
+    background-color: #475569;
+    border-color: #64748b;
+  }
+
+  .watermark-checkbox input:checked ~ .watermark-checkmark {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+  }
+
+  .watermark-checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 7px;
+    top: 3px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  .watermark-checkbox input:checked ~ .watermark-checkmark:after {
+    display: block;
+  }
+
+  .watermark-label {
+    font-size: 14px;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1.4;
+    flex: 1; /* Memastikan label mengambil ruang yang tersedia */
+  }
+`;
+document.head.appendChild(checkboxFixStyle);
+    const LANGUAGE_KEY = "nai_language";
+    const DEFAULT_LANGUAGE = "en";
+    const SUPPORTED_LANGUAGES = {
+        en: "English",
+        ja: "日本語"
+    };
+
+    function detectLanguage() {
+        const savedLanguage = localStorage.getItem(LANGUAGE_KEY);
+        if (savedLanguage && SUPPORTED_LANGUAGES[savedLanguage]) {
+            return savedLanguage;
+        }
+
+        const browserLang = navigator.language || navigator.userLanguage;
+        if (browserLang.startsWith("ja")) return "ja";
+
+        return DEFAULT_LANGUAGE;
+    }
+
+    let currentLanguage = detectLanguage();
+
+    const TRANSLATIONS = {
+        en: {
+            ready: "Ready to go 🎯",
+            profilesTitle: "Prompt Profiles",
+            manageGlobalVars: "Manage Global Variables",
+            manageWildcards: "Manage Wildcards",
+            settingsBlacklist: "Vars & Blacklist",
+            keyboardShortcuts: "Keyboard Shortcuts",
+            watermarkSettings: "🖼️ Watermark Settings",
+            positivePlaceholder: "Positive prompt...",
+            negativePlaceholder: "Negative prompt (Undesired Content)...",
+            override: "🔄 Override",
+            append: "➕ Append",
+            newProfile: "🆕 New",
+            saveProfile: "💾 Save",
+            renameProfile: "✏️ Rename",
+            deleteProfile: "🗑️ Delete",
+            clearAll: "💥 Clear",
+            swapPosition: "🔁 Swap Pos",
+            danbooru: "🔍 Danbooru",
+            e621: "🔍 E621",
+            fullBackup: "📦 Full Backup",
+            fullRestore: "🔁 Full Restore",
+            searchProfiles: "🔍 Search",
+            noProfiles: "No profiles yet",
+            enterProfileName: "Name your new profile:",
+            profileExists: name => `❌ "${name}" already exists.`,
+            createdProfile: name => `✅ Created "${name}".`,
+            pickProfileFirst: "❌ Pick a profile first.",
+            savedProfile: name => `✔️ "${name}" saved.`,
+            renamePrompt: "New name:",
+            renameTaken: name => `❌ "${name}" already taken.`,
+            renamed: (old, neu) => `🔄 Renamed "${old}" → "${neu}"`,
+            confirmDelete: name => `Delete "${name}"?`,
+            deletedSwitched: (del, newp) => `🗑️ Deleted "${del}". Switched to "${newp}".`,
+            deletedNone: name => `🗑️ Deleted "${name}". No profiles left.`,
+            confirmClearAll: "⚠️ Delete ALL profiles? This can't be undone.",
+            clearedAll: "🧹 Cleared everything.",
+            swapPrompt: "Swap with which profile number?",
+            invalidPos: "❌ Invalid position.",
+            alreadyThere: "ℹ️ Already there.",
+            swapped: (pos1, pos2) => `✅ Swapped profile #${pos1} with profile #${pos2}.`,
+            danbooruPrompt: (last) => `📌 Pull prompt from Danbooru
 Enter post ID (like: 789532)
 Last used: ${last || 'None'}`,
-        danbooruInvalidId: "❌ ID must be numbers only.",
-        danbooruFetching: id => `📥 Fetching Danbooru #${id}...`,
-        danbooruApplying: id => `🔧 Applying prompt from Danbooru #${id}...`,
-        danbooruApplyFail: "❌ Failed to send to editor.",
-        danbooruError: err => `❌ Danbooru: ${err}`,
-        backupSaved: "✅ Full backup saved!",
-        restoreSelectFile: "Select backup file (.json)",
-        restoreSuccess: "✅ Full backup restored!",
-        restoreLegacy: "🔄 Loaded legacy profiles.",
-        restoreInvalid: "❌ Not a valid backup file.",
-        globalVarsTitle: "🔤 Global Variables",
-        globalVarsDesc: "Format: <code>name=value</code><br>Example: <code>miku=twintail, blue hair, aqua eyes</code>",
-        wildcardsTitle: "🎲 Wildcards",
-        wildcardsDesc: "Format: <code>name=value1, value2, ...</code><br>Example: <code>character=miku, teto, luka</code>",
-        blacklistTitle: "⚙️ Tag Blacklist",
-        blacklistDesc: "Tags below will be removed when fetching from Danbooru. Separate with commas.",
-        blacklistPlaceholder: "white background, outdoors, upper body, text, watermark",
-        blacklistSaved: count => `✅ Blacklist updated (${count} tags).`,
-        nothingToPaste: "⚠️ Nothing to paste here.",
-        cantFindEditor: "❌ Can't find the editor.",
-        doneProseMirror: "✅ Done (ProseMirror)",
-        fallbackMethod: "⚠️ That didn't work, trying another way...",
-        pasted: "✅ Pasted!",
-        clipboardCopy: "📋 Copied! Just hit Ctrl+V to paste it yourself.",
-        clipboardFail: "❌ Couldn't copy to clipboard.",
-        nothingToAppend: "⚠️ Nothing to append.",
-        appendedProseMirror: "✅ Appended (ProseMirror)",
-        appendFallback: "⚠️ Append fallback...",
-        appended: "✅ Appended!",
-        appendClipboard: "📋 Copied! Paste manually.",
-        nothingToAppendNeg: "⚠️ Nothing to append (negative).",
-        negAppendedProseMirror: "✅ Negative appended (ProseMirror)",
-        negAppendFallback: "⚠️ Negative append clipboard fallback...",
-        negAppended: "✅ Negative appended!",
-        fillVarsTitle: "Fill Variables & Wildcards",
-        fillVarsLabel: "Fill values for variables:",
-        wildcardChoose: "-- Choose --",
-        dbLabel: "DB (Danbooru ID)",
-        dbPlaceholder: "789532",
-        dbDesc: "Enter a post ID from Danbooru",
-        cancel: "Cancel",
-        apply: "Apply",
-        updateAvailable: "🎉 Update Available!",
-        updateNew: vers => `Version <strong>v${vers}</strong> is out.`,
-        updateNow: "Update Now",
-        addCharacter: "Add Character",
-        editCharacter: "Edit Character",
-        charNameLabel: "Character Name:",
-        charPromptLabel: "Character Prompt:",
-        charNamePlaceholder: "e.g. Miku",
-        charPromptPlaceholder: "girl, blue hair, twintail...",
-        removeCharacter: "Remove",
-        moveUp: "Move Up",
-        moveDown: "Move Down",
-        noCharacters: "No characters yet",
-        maxCharsWarning: (found, available) => `⚠️ Found ${found} characters, but only ${available} slots available. Some will be skipped.`,
-        fillVariablesTitle: "Fill Variables",
-        fillVariablesDesc: "Please fill in the values for the variables found in your prompt:",
-        fillWildcardsTitle: "Select Wildcards",
-        fillWildcardsDesc: "Please select values for the wildcards found in your prompt:",
-        fillCharVarsTitle: "Character Variables & Wildcards",
-        fillCharVarsDesc: "Fill in values for variables and select wildcards for character prompts:",
-        generate: "🎨 Generate Image",
-        profileTab: "Profile",
-        characterTab: "Character",
-        utilityTab: "Utility",
-        settingsTab: "Settings",
-        close: "✕ Close",
-        selectChar: "Select a character...",
-        searchCharDB: "Search character database...",
-        addSelected: "Add Selected",
-        noCharsFound: "No characters found",
-        editCharDB: "Edit",
-        notificationSettings: "Notification Settings",
-        enableNotifications: "🔔Notifications",
-        notificationDesc: "Show success/error messages on screen.",
-        deleteCharDB: "Delete",
-        organizeCharDB: "Organize",
-        organizeCharDBTitle: "Organize Character Database",
-        searchCharsPlaceholder: "Search characters...",
-        editChar: "Edit",
-        renameChar: "Rename",
-        deleteChar: "Delete",
-        confirmDeleteChar: name => `Delete "${name}" from database?`,
-        charDeleted: name => `Deleted "${name}" from database`,
-        charRenamed: (old, neu) => `Renamed "${old}" to "${neu}"`,
-        // New strings for image settings
-        steps: "steps",
-        guidance: "guidance",
-        applySettings: "Apply Settings",
-        imageSettings: "Image Generation Settings"
+            e621Prompt: (last) => `📌 Pull prompt from E621
+Enter post ID (like: 789532)
+Last used: ${last || 'None'}`,
+            danbooruInvalidId: "❌ ID must be numbers only.",
+            e621InvalidId: "❌ ID must be numbers only.",
+            danbooruFetching: id => `📥 Fetching Danbooru #${id}...`,
+            e621Fetching: id => `📥 Fetching E621 #${id}...`,
+            danbooruApplying: id => `🔧 Applying prompt from Danbooru #${id}...`,
+            e621Applying: id => `🔧 Applying prompt from E621 #${id}...`,
+            danbooruApplyFail: "❌ Failed to send to editor.",
+            e621ApplyFail: "❌ Failed to send to editor.",
+            danbooruError: err => `❌ Danbooru: ${err}`,
+            e621Error: err => `❌ E621: ${err}`,
+            backupSaved: "✅ Full backup saved!",
+            restoreSelectFile: "Select backup file (.json)",
+            restoreSuccess: "✅ Full backup restored!",
+            restoreLegacy: "🔄 Loaded legacy profiles.",
+            restoreInvalid: "❌ Not a valid backup file.",
+            globalVarsTitle: "🔤 Global Variables { } ",
+            globalVarsDesc: "Format: <code>name=value</code> | Input: {miku} <br>Example: <code>miku=twintail, blue hair, aqua eyes</code>",
+            wildcardsTitle: "🎲 Wildcards [ ] ",
+            wildcardsDesc: "Format: <code>name=value1, value2, ...</code> | Input: [character] <br>Example: <code>character=miku, teto, luka</code>",
+            blacklistTitle: "⚙️ Tag Blacklist",
+            blacklistDesc: "Tags below will be removed when fetching from Danbooru/E621. Separate with commas.",
+            blacklistPlaceholder: "watermark, signature, artist name",
+            blacklistSaved: count => `✅ Blacklist updated (${count} tags).`,
+            nothingToPaste: "⚠️ Nothing to paste here.",
+            cantFindEditor: "❌ Can't find the editor.",
+            doneProseMirror: "✅ Done (ProseMirror)",
+            fallbackMethod: "⚠️ That didn't work, trying another way...",
+            pasted: "✅ Pasted!",
+            clipboardCopy: "📋 Copied! Just hit Ctrl+V to paste it yourself.",
+            clipboardFail: "❌ Couldn't copy to clipboard.",
+            nothingToAppend: "⚠️ Nothing to append.",
+            appendedProseMirror: "✅ Appended (ProseMirror)",
+            appendFallback: "⚠️ Append fallback...",
+            appended: "✅ Appended!",
+            appendClipboard: "📋 Copied! Paste manually.",
+            nothingToAppendNeg: "⚠️ Nothing to append (negative).",
+            negAppendedProseMirror: "✅ Negative appended (ProseMirror)",
+            negAppendFallback: "⚠️ Negative append clipboard fallback...",
+            negAppended: "✅ Negative appended!",
+            fillVarsTitle: "Fill Variables & Wildcards",
+            fillVarsLabel: "Fill values for variables:",
+            wildcardChoose: "-- Choose --",
+            dbLabel: "Danbooru ID",
+            e621Label: "E621 ID",
+            dbPlaceholder: "789532",
+            e621Placeholder: "789532",
+            dbDesc: "Enter a post ID from Danbooru",
+            e621Desc: "Enter a post ID from E621",
+            cancel: "Cancel",
+            apply: "Apply",
+            updateAvailable: "🎉 Update Available!",
+            updateNew: vers => `Version <strong>v${vers}</strong> is out.`,
+            updateNow: "Update Now",
+            addCharacter: "Add Character",
+            editCharacter: "Edit Character",
+            charNameLabel: "Character Name:",
+            charPromptLabel: "Character Prompt:",
+            charNamePlaceholder: "e.g. Miku",
+            charPromptPlaceholder: "girl, blue hair, twintail...",
+            removeCharacter: "Remove",
+            moveUp: "Move Up",
+            moveDown: "Move Down",
+            noCharacters: "No characters yet",
+            maxCharsWarning: (found, available) => `⚠️ Found ${found} characters, but only ${available} slots available. Some will be skipped.`,
+            fillVariablesTitle: "Fill Variables",
+            fillVariablesDesc: "Please fill in the values for the variables found in your prompt:",
+            fillWildcardsTitle: "Select Wildcards",
+            fillWildcardsDesc: "Please select values for the wildcards found in your prompt:",
+            fillCharVarsTitle: "Character Variables & Wildcards",
+            fillCharVarsDesc: "Fill in values for variables and select wildcards for character prompts:",
+            generate: "🎨 Generate Image",
+            profileTab: "Profile",
+            characterTab: "Character",
+            utilityTab: "Utility",
+            settingsTab: "Settings",
+            close: "✕ Close",
+            selectChar: "Select a character...",
+            searchCharDB: "Search character database...",
+            addSelected: "Add Selected",
+            noCharsFound: "No characters found",
+            editCharDB: "Edit",
+            notificationSettings: "Notification Settings",
+            enableNotifications: "🔔Notifications",
+            notificationDesc: "Show success/error messages on screen.",
+            deleteCharDB: "Delete",
+            organizeCharDB: "Organize",
+            organizeCharDBTitle: "Organize Character Database",
+            searchCharsPlaceholder: "Search characters...",
+            promptForUndefVars: "Prompt for Undefined {Variables}",
+            editChar: "Edit",
+            renameChar: "Rename",
+            deleteChar: "Delete",
+            confirmDeleteChar: name => `Delete "${name}" from database?`,
+            charDeleted: name => `Deleted "${name}" from database`,
+            charRenamed: (old, neu) => `Renamed "${old}" to "${neu}"`,
+            steps: "steps",
+            guidance: "guidance",
+            applySettings: "Apply Settings",
+            imageSettings: "Image Generation Settings",
+            languageSettings: "Language Settings",
+            languageDesc: "Select your preferred language:",
+            languageChanged: "Language changed. The page will now refresh.",
+            languageAutoDetect: "Auto-detect from browser",
+            addCharToDB: "Add Character to Database",
+            characterDB: "Character Database",
+            addToDB: "Add to DB",
+            profileMenu: "📁 Profile",
+            profileOptions: "Profile Options",
+            namePromptRequired: "Name and prompt are required.",
+            noPrompt: "No prompt",
+            variables: "Variables",
+            wildcards: "Wildcards",
+            enterNewName: "Enter new name:",
+            characterExists: "Character already exists",
+            orderUpdated: "✅ Order updated",
+            charAddedToProfile: name => `✅ Added "${name}" to profile`,
+            charDeletedFromProfile: name => `🗑️ "${name}" deleted`,
+            charUpdated: name => `✅ Character "${name}" updated`,
+            charAdded: name => `✅ Character "${name}" added`,
+            generatingImage: "🎨 Generating image...",
+            cantFindGenerateBtn: "❌ Could not find or click the generate button. The page structure might have changed.",
+            updateNotice: "🎉 Update Available!",
+            updateVersion: vers => `Version <strong>v${vers}</strong> is out.`,
+            updateButton: "Update Now",
+            zoomIn: "Zoom In",
+            zoomOut: "Zoom Out",
+            resetZoom: "Reset Zoom",
+            zoomLevel: level => `Zoom: ${level}%`,
+            imageSettingsApplied: "✅ Image settings applied",
+            nameRequired: "Name is required",
+            promptRequired: "Prompt is required",
+            quickAddTitle: "Quick Add to Base Prompt",
+            errorSavingSettings: "❌ Error saving settings.",
+            metadataRemover: "🔒 Remove Metadata",
+            metadataRemoved: "✅ Metadata removed and image downloaded",
+            metadataError: "❌ Failed to remove metadata",
+            shortcutsTitle: "Keyboard Shortcuts",
+            shortcutsDesc: "Customize keyboard shortcuts for quick access to features.",
+            shortcutsNote: "Note: CTRL+1 to CTRL+9 are reserved for quick profile switching and cannot be changed.",
+            shortcutConflictWarning: "This shortcut conflicts with a browser shortcut and may not work properly.",
+            shortcutSaved: "✅ Keyboard shortcuts saved!",
+            shortcutConflict: "⚠️ Shortcut conflict detected!",
+            newProfileShortcut: "New Profile",
+            saveProfileShortcut: "Save Profile",
+            renameProfileShortcut: "Rename Profile",
+            deleteProfileShortcut: "Delete Profile",
+            searchShortcut: "Search Profiles",
+            overrideShortcut: "Override",
+            appendShortcut: "Append",
+            addCharacterShortcut: "Add Character",
+            addToDBShortcut: "Add to DB",
+            organizeShortcut: "Organize Character Database",
+            characterTabShortcut: "Character Tab",
+            danbooruShortcut: "Danbooru Fetch",
+            e621Shortcut: "E621 Fetch",
+            fullBackupShortcut: "Full Backup",
+            fullRestoreShortcut: "Full Restore",
+            pressKey: "Press a key combination",
+            ctrlKey: "Ctrl",
+            altKey: "Alt",
+            shiftKey: "Shift",
+            enterKey: "Enter",
+            escapeKey: "Escape",
+            spaceKey: "Space",
+            tabKey: "Tab",
+            backspaceKey: "Backspace",
+            deleteKey: "Delete",
+            watermarkText: "Watermark Text",
+            watermarkFontSize: "Font Size",
+            watermarkFont: "Font",
+            watermarkBackgroundColor: "Background Color",
+            watermarkPadding: "Padding",
+            watermarkBorderRadius: "Border Radius",
+            watermarkOpacity: "Opacity",
+            watermarkColor: "Color",
+            watermarkPosition: "Position",
+            watermarkMargin: "Margin",
+            enableWatermark: "Enable Auto Watermark",
+            disableBackground: "Disable Background",
+            textShadowColor: "Text Shadow Color",
+            topLeft: "Top Left",
+            topRight: "Top Right",
+            bottomLeft: "Bottom Left",
+            bottomRight: "Bottom Right",
+            center: "Center",
+            imageWithWatermark: "✅ Image downloaded with watermark",
+            watermarkRemoved: "✅ Metadata removed and image downloaded",
+            watermarkPreview: "Watermark Preview",
+            watermarkType: "Watermark Type",
+            textWatermark: "Text Watermark",
+            imageWatermark: "Image Watermark",
+            uploadImage: "Upload Image",
+            imageSize: "Image Size",
+            maintainAspectRatio: "Maintain Aspect Ratio"
+        },
+        ja: {
+            ready: "準備完了 🎯",
+            profilesTitle: "プロンプトプロファイル",
+            manageGlobalVars: "グローバル変数の管理",
+            manageWildcards: "ワイルドカードの管理",
+            settingsBlacklist: "設定とブラックリスト",
+            keyboardShortcuts: "キーボードショートカット",
+            watermarkSettings: "🖼️ ウォーターマーク設定",
+            positivePlaceholder: "ポジティブプロンプト...",
+            negativePlaceholder: "ネガティブプロンプト（望ましくないコンテンツ）...",
+            override: "🔄 上書き",
+            append: "➕ 追加",
+            newProfile: "🆕 新規",
+            saveProfile: "💾 保存",
+            renameProfile: "✏️ 名前変更",
+            deleteProfile: "🗑️ 削除",
+            clearAll: "💥 全削除",
+            swapPosition: "🔁 位置交換",
+            danbooru: "🔍 Danbooru",
+            e621: "🔍 E621",
+            fullBackup: "📦 完全バックアップ",
+            fullRestore: "🔁 完全復元",
+            searchProfiles: "🔍 検索",
+            noProfiles: "プロファイルがありません",
+            enterProfileName: "新しいプロファイル名を入力してください：",
+            profileExists: name => `❌ "${name}" は既に存在します。`,
+            createdProfile: name => `✅ "${name}" を作成しました。`,
+            pickProfileFirst: "❌ まずプロファイルを選択してください。",
+            savedProfile: name => `✔️ "${name}" を保存しました。`,
+            renamePrompt: "新しい名前：",
+            renameTaken: name => `❌ "${name}" は既に使用されています。`,
+            renamed: (old, neu) => `🔄 "${old}" を "${neu}" に名前変更しました`,
+            confirmDelete: name => `"${name}" を削除しますか？`,
+            deletedSwitched: (del, newp) => `🗑️ "${del}" を削除しました。"${newp}" に切り替えました。`,
+            deletedNone: name => `🗑️ "${name}" を削除しました。プロファイルがありません。`,
+            confirmClearAll: "⚠️ すべてのプロファイルを削除しますか？これは元に戻せません。",
+            clearedAll: "🧹 すべてをクリアしました。",
+            swapPrompt: "どのプロファイル番号と交換しますか？",
+            invalidPos: "❌ 無効な位置です。",
+            alreadyThere: "ℹ️ すでにそこにあります。",
+            swapped: (pos1, pos2) => `✅ プロファイル #${pos1} とプロファイル #${pos2} を交換しました。`,
+            danbooruPrompt: (last) => `📌 Danbooruからプロンプトを取得
+投稿IDを入力（例：789532）
+最後に使用：${last || 'なし'}`,
+            e621Prompt: (last) => `📌 E621からプロンプトを取得
+投稿IDを入力（例：789532）
+最後に使用：${last || 'なし'}`,
+            danbooruInvalidId: "❌ IDは数字のみである必要があります。",
+            e621InvalidId: "❌ IDは数字のみである必要があります。",
+            danbooruFetching: id => `📥 Danbooru #${id} を取得中...`,
+            e621Fetching: id => `📥 E621 #${id} を取得中...`,
+            danbooruApplying: id => `🔧 Danbooru #${id} からプロンプトを適用中...`,
+            e621Applying: id => `🔧 E621 #${id} からプロンプトを適用中...`,
+            danbooruApplyFail: "❌ エディターへの送信に失敗しました。",
+            e621ApplyFail: "❌ エディターへの送信に失敗しました。",
+            danbooruError: err => `❌ Danbooru: ${err}`,
+            e621Error: err => `❌ E621: ${err}`,
+            backupSaved: "✅ 完全バックアップを保存しました！",
+            restoreSelectFile: "バックアップファイルを選択（.json）",
+            restoreSuccess: "✅ 完全バックアップを復元しました！",
+            restoreLegacy: "🔄 レガシープロファイルを読み込みました。",
+            restoreInvalid: "❌ 有効なバックアップファイルではありません。",
+            globalVarsTitle: "🔤 グローバル変数 { } ",
+            globalVarsDesc: "形式: <code>名前=値</code> | 入力: {miku} <br>例: <code>miku=ツインテール、青い髪、水色の目</code>",
+            wildcardsTitle: "🎲 ワイルドカード [ ] ",
+            wildcardsDesc: "形式: <code>名前=値1, 値2, ...</code> | 入力: [character] <br>例: <code>character=miku, teto, luka</code>",
+            blacklistTitle: "⚙️ タグブラックリスト",
+            blacklistDesc: "Danbooru/E621から取得する際に以下のタグが削除されます。カンマで区切ってください。",
+            blacklistPlaceholder: "watermark, signature, artist name",
+            blacklistSaved: count => `✅ ブラックリストを更新しました（${count}タグ）。`,
+            nothingToPaste: "⚠️ ここに貼り付けるものがありません。",
+            cantFindEditor: "❌ エディターが見つかりません。",
+            doneProseMirror: "✅ 完了（ProseMirror）",
+            fallbackMethod: "⚠️ うまくいきませんでした、別の方法を試しています...",
+            pasted: "✅ 貼り付けました！",
+            clipboardCopy: "📋 コピーしました！Ctrl+Vを押して自分で貼り付けてください。",
+            clipboardFail: "❌ クリップボードにコピーできませんでした。",
+            nothingToAppend: "⚠️ 追加するものがありません。",
+            appendedProseMirror: "✅ 追加しました（ProseMirror）",
+            appendFallback: "⚠️ 追加のフォールバック...",
+            appended: "✅ 追加しました！",
+            appendClipboard: "📋 コピーしました！手動で貼り付けてください。",
+            nothingToAppendNeg: "⚠️ 追加するものがありません（ネガティブ）。",
+            negAppendedProseMirror: "✅ ネガティブを追加しました（ProseMirror）",
+            negAppendFallback: "⚠️ ネガティブ追加のクリップボードフォールバック...",
+            negAppended: "✅ ネガティブを追加しました！",
+            fillVarsTitle: "変数とワイルドカードを入力",
+            fillVarsLabel: "変数の値を入力：",
+            wildcardChoose: "-- 選択 --",
+            dbLabel: "Danbooru ID",
+            e621Label: "E621 ID",
+            dbPlaceholder: "789532",
+            e621Placeholder: "789532",
+            dbDesc: "Danbooruの投稿IDを入力",
+            e621Desc: "E621の投稿IDを入力",
+            cancel: "キャンセル",
+            apply: "適用",
+            updateAvailable: "🎉 アップデート利用可能！",
+            updateNew: vers => `バージョン <strong>v${vers}</strong> が利用可能です。`,
+            updateNow: "今すぐアップデート",
+            addCharacter: "キャラクターを追加",
+            editCharacter: "キャラクターを編集",
+            charNameLabel: "キャラクター名：",
+            charPromptLabel: "キャラクタープロンプト：",
+            charNamePlaceholder: "例：ミク",
+            charPromptPlaceholder: "少女、青い髪、ツインテール...",
+            removeCharacter: "削除",
+            moveUp: "上に移動",
+            moveDown: "下に移動",
+            noCharacters: "キャラクターがいません",
+            maxCharsWarning: (found, available) => `⚠️ ${found}個のキャラクターが見つかりましたが、利用可能なスロットは${available}個のみです。一部はスキップされます。`,
+            fillVariablesTitle: "変数を入力",
+            fillVariablesDesc: "プロンプト内に見つかった変数の値を入力してください：",
+            fillWildcardsTitle: "ワイルドカードを選択",
+            fillWildcardsDesc: "プロンプト内に見つかったワイルドカードの値を選択してください：",
+            fillCharVarsTitle: "キャラクター変数とワイルドカード",
+            fillCharVarsDesc: "キャラクタープロンプトの変数の値を入力し、ワイルドカードを選択してください：",
+            generate: "🎨 画像を生成",
+            profileTab: "プロファイル",
+            characterTab: "キャラクター",
+            utilityTab: "ユーティリティ",
+            settingsTab: "設定",
+            close: "✕ 閉じる",
+            selectChar: "キャラクターを選択...",
+            searchCharDB: "キャラクターデータベースを検索...",
+            addSelected: "選択したものを追加",
+            noCharsFound: "キャラクターが見つかりません",
+            editCharDB: "編集",
+            notificationSettings: "通知設定",
+            enableNotifications: "🔔通知",
+            notificationDesc: "成功/エラーメッセージを画面に表示します。",
+            deleteCharDB: "削除",
+            organizeCharDB: "整理",
+            organizeCharDBTitle: "キャラクターデータベースを整理",
+            searchCharsPlaceholder: "キャラクターを検索...",
+            promptForUndefVars: "未定義の{変数}の入力を求める",
+            editChar: "編集",
+            renameChar: "名前変更",
+            deleteChar: "削除",
+            confirmDeleteChar: name => `データベースから "${name}" を削除しますか？`,
+            charDeleted: name => `データベースから "${name}" を削除しました`,
+            charRenamed: (old, neu) => `"${old}" を "${neu}" に名前変更しました`,
+            steps: "ステップ",
+            guidance: "正確度",
+            applySettings: "設定を適用",
+            imageSettings: "画像生成設定",
+            languageSettings: "言語設定",
+            languageDesc: "希望する言語を選択してください：",
+            languageChanged: "言語が変更されました。ページがすぐに更新されます。",
+            languageAutoDetect: "ブラウザから自動検出",
+            addCharToDB: "キャラクターをデータベースに追加",
+            characterDB: "キャラクターデータベース",
+            addToDB: "DBに追加",
+            profileMenu: "📁 プロファイル",
+            profileOptions: "プロファイルオプション",
+            namePromptRequired: "名前とプロンプトが必要です。",
+            noPrompt: "プロンプトがありません",
+            variables: "変数",
+            wildcards: "ワイルドカード",
+            enterNewName: "新しい名前を入力：",
+            characterExists: "キャラクターが既に存在します",
+            orderUpdated: "✅ 順序が更新されました",
+            charAddedToProfile: name => `✅ "${name}" をプロファイルに追加しました`,
+            charDeletedFromProfile: name => `🗑️ "${name}" を削除しました`,
+            charUpdated: name => `✅ キャラクター "${name}" を更新しました`,
+            charAdded: name => `✅ キャラクター "${name}" を追加しました`,
+            generatingImage: "🎨 画像を生成中...",
+            cantFindGenerateBtn: "❌ 生成ボタンが見つからないかクリックできません。ページ構造が変更された可能性があります。",
+            updateNotice: "🎉 アップデート利用可能！",
+            updateVersion: vers => `バージョン <strong>v${vers}</strong> が利用可能です。`,
+            updateButton: "今すぐアップデート",
+            zoomIn: "ズームイン",
+            zoomOut: "ズームアウト",
+            resetZoom: "ズームリセット",
+            zoomLevel: level => `ズーム: ${level}%`,
+            imageSettingsApplied: "✅ 画像設定を適用しました",
+            nameRequired: "名前が必要です",
+            promptRequired: "プロンプトが必要です",
+            quickAddTitle: "ベースプロンプトにクイック追加",
+            errorSavingSettings: "❌ 設定の保存中にエラーが発生しました。",
+            metadataRemover: "🔒 メタデータを削除",
+            metadataRemoved: "✅ メタデータが削除され、画像がダウンロードされました",
+            metadataError: "❌ メタデータの削除に失敗しました",
+            shortcutsTitle: "キーボードショートカット",
+            shortcutsDesc: "機能へのクイックアクセスのためのキーボードショートカットをカスタマイズします。",
+            shortcutsNote: "注：CTRL+1からCTRL+9はクイックプロファイル切り替え用に予約されており、変更できません。",
+            shortcutConflictWarning: "このショートカットはブラウザのショートカットと競合し、正常に機能しない可能性があります。",
+            shortcutSaved: "✅ キーボードショートカットが保存されました！",
+            shortcutConflict: "⚠️ ショートカットの競合が検出されました！",
+            newProfileShortcut: "新しいプロファイル",
+            saveProfileShortcut: "プロファイルを保存",
+            renameProfileShortcut: "プロファイル名を変更",
+            deleteProfileShortcut: "プロファイルを削除",
+            searchShortcut: "プロファイルを検索",
+            overrideShortcut: "上書き",
+            appendShortcut: "追加",
+            addCharacterShortcut: "キャラクターを追加",
+            addToDBShortcut: "DBに追加",
+            organizeShortcut: "整理",
+            characterTabShortcut: "キャラクタータブ",
+            danbooruShortcut: "Danbooru取得",
+            e621Shortcut: "E621取得",
+            fullBackupShortcut: "完全バックアップ",
+            fullRestoreShortcut: "完全復元",
+            pressKey: "キーの組み合わせを押してください",
+            ctrlKey: "Ctrl",
+            altKey: "Alt",
+            shiftKey: "Shift",
+            enterKey: "Enter",
+            escapeKey: "Escape",
+            spaceKey: "Space",
+            tabKey: "Tab",
+            backspaceKey: "Backspace",
+            deleteKey: "Delete",
+            watermarkText: "ウォーターマークテキスト",
+            watermarkFontSize: "フォントサイズ",
+            watermarkFont: "フォント",
+            watermarkBackgroundColor: "背景色",
+            watermarkPadding: "パディング",
+            watermarkBorderRadius: "境界線の丸み",
+            watermarkOpacity: "不透明度",
+            watermarkColor: "色",
+            watermarkPosition: "位置",
+            watermarkMargin: "マージン",
+            enableWatermark: "自動ウォーターマークを有効にする",
+            disableBackground: "背景を無効にする",
+            textShadowColor: "テキストシャドウの色",
+            topLeft: "左上",
+            topRight: "右上",
+            bottomLeft: "左下",
+            bottomRight: "右下",
+            center: "中央",
+            imageWithWatermark: "✅ ウォーターマーク付きで画像をダウンロードしました",
+            watermarkRemoved: "✅ メタデータが削除され、画像がダウンロードされました",
+            watermarkPreview: "ウォーターマークプレビュー",
+            watermarkType: "ウォーターマークタイプ",
+            textWatermark: "テキストウォーターマーク",
+            imageWatermark: "イメージウォーターマーク",
+            uploadImage: "画像をアップロード",
+            imageSize: "画像サイズ",
+            maintainAspectRatio: "アスペクト比を維持"
+        }
     };
+
     const t = (key, ...args) => {
-        const str = STRINGS[key] || key;
+        const str = TRANSLATIONS[currentLanguage][key] || TRANSLATIONS[DEFAULT_LANGUAGE][key] || key;
         if (typeof str === 'function') return str(...args);
         return str;
     };
+
+    function changeLanguage(lang) {
+        if (SUPPORTED_LANGUAGES[lang]) {
+            localStorage.setItem(LANGUAGE_KEY, lang);
+            showNotification(t('languageChanged'), 'info');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+    }
+
     const STORAGE_KEY = "nai_prompt_profiles_v2";
     const LAST_PROFILE_KEY = "nai_last_profile";
     const ICON_POS_KEY = "nai_icon_position";
     const BLACKLIST_KEY = "nai_danbooru_blacklist";
     const LAST_ID_KEY = "nai_last_danbooru_id";
+    const LAST_E621_ID_KEY = "nai_last_e621_id";
     const GLOBAL_VARIABLES_KEY = "nai_global_variables";
     const WILDCARDS_KEY = "nai_wildcards";
     const WILDCARD_REMAINING_KEY = "nai_wildcard_remaining";
     const CHARACTER_DB_KEY = "nai_character_database";
     const NOTIFICATION_SETTINGS_KEY = "nai_notification_settings";
-    // New storage key for image settings
     const IMAGE_SETTINGS_KEY = "nai_image_settings";
+    const FREE_VARIABLES_KEY = "nai_free_variables_enabled";
+    const BLACKLISTED_CATEGORIES_KEY = "nai_blacklisted_categories";
+    const KEYBOARD_SHORTCUTS_KEY = "nai_keyboard_shortcuts";
+    const WATERMARK_SETTINGS_KEY = "nai_watermark_settings";
+    const WATERMARK_ENABLED_KEY = "nai_watermark_enabled";
+    const WATERMARK_TYPE_KEY = "nai_watermark_type";
+    const WATERMARK_IMAGE_KEY = "nai_watermark_image";
+    const WATERMARK_IMAGE_SIZE_KEY = "nai_watermark_image_size";
 
     let profiles = [];
     let lastProfileName = localStorage.getItem(LAST_PROFILE_KEY);
     let lastId = localStorage.getItem(LAST_ID_KEY) || "";
+    let lastE621Id = localStorage.getItem(LAST_E621_ID_KEY) || "";
     let blacklistTags = [];
     let globalVariables = {};
     let wildcards = {};
     let wildcardRemaining = {};
     let characterDatabase = {};
     let enableNotifications = true;
-
-    // Default image settings
+    let freeVariablesEnabled = true;
+    let blacklistedCategories = [];
+    let keyboardShortcuts = {};
     let imageSettings = {
         steps: 28,
         guidance: 5.0
     };
+    let watermarkSettings = {
+        text: "Created with NovelAI",
+        fontSize: 16,
+        font: "Arial",
+        color: "#ffffff",
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        opacity: 0.7,
+        position: "bottom-right",
+        margin: 10,
+        padding: 5,
+        borderRadius: 5,
+        disableBackground: false,
+        textShadowColor: "#000000"
+    };
+    let watermarkEnabled = false;
+    let watermarkType = "text"; // "text" or "image"
+    let watermarkImage = null; // Base64 encoded image
+    let watermarkImageSize = 100; // Size in pixels
 
-    // Load image settings from storage
+    const DEFAULT_SHORTCUTS = {
+        newProfile: { alt: true, key: 'n' },
+        saveProfile: { alt: true, key: 's' },
+        renameProfile: { alt: true, key: 'r' },
+        deleteProfile: { alt: true, key: 'd' },
+        search: { alt: true, key: 'q' },
+        override: { alt: true, key: 'o' },
+        append: { alt: true, key: 'a' },
+        addCharacter: { alt: true, key: 'c' },
+        addToDB: { alt: true, key: 't' },
+        organize: { alt: true, key: 'g' },
+        characterTab: { alt: true, key: '2' },
+        danbooru: { alt: true, key: '3' },
+        e621: { alt: true, key: '4' },
+        fullBackup: { alt: true, key: 'b' },
+        fullRestore: { alt: true, key: 'v' }
+    };
+
+    const BROWSER_SHORTCUTS = {
+        'ctrl+n': true,  // New window
+        'ctrl+s': true,  // Save page
+        'ctrl+o': true,  // Open file
+        'ctrl+a': true,  // Select all
+        'ctrl+d': true,  // Bookmark page
+        'ctrl+f': true,  // Find
+        'ctrl+g': true,  // Find next
+        'ctrl+h': true,  // History
+        'ctrl+j': true,  // Downloads
+        'ctrl+k': true,  // Focus address bar
+        'ctrl+l': true,  // Focus address bar
+        'ctrl+p': true,  // Print
+        'ctrl+r': true,  // Reload
+        'ctrl+t': true,  // New tab
+        'ctrl+u': true,  // View source
+        'ctrl+v': true,  // Paste
+        'ctrl+w': true,  // Close tab
+        'ctrl+x': true,  // Cut
+        'ctrl+y': true,  // Redo
+        'ctrl+z': true,  // Undo
+        'ctrl+0': true,  // Reset zoom
+        'ctrl+1': true,  // Switch to tab 1
+        'ctrl+2': true,  // Switch to tab 2
+        'ctrl+3': true,  // Switch to tab 3
+        'ctrl+4': true,  // Switch to tab 4
+        'ctrl+5': true,  // Switch to tab 5
+        'ctrl+6': true,  // Switch to tab 6
+        'ctrl+7': true,  // Switch to tab 7
+        'ctrl+8': true,  // Switch to tab 8
+        'ctrl+9': true,  // Switch to tab 9
+        'ctrl+-': true,  // Zoom out
+        'ctrl+=': true,  // Zoom in
+        'ctrl+shift+i': true,  // Developer tools
+        'ctrl+shift+j': true,  // Developer tools
+        'ctrl+shift+c': true   // Developer tools
+    };
+    try { const saved = localStorage.getItem(STORAGE_KEY); if (saved) profiles = JSON.parse(saved).filter(p => p && p.name).map(p => ({...p, characters: Array.isArray(p.characters) ? p.characters : [] })); } catch (e) {}
+    try { blacklistTags = (localStorage.getItem(BLACKLIST_KEY) || "").split(',').map(t => t.trim().toLowerCase()).filter(t => t); } catch (e) {}
+    try { globalVariables = JSON.parse(localStorage.getItem(GLOBAL_VARIABLES_KEY) || "{}"); } catch (e) {}
+    try { wildcards = JSON.parse(localStorage.getItem(WILDCARDS_KEY) || "{}"); } catch (e) {}
+    try { wildcardRemaining = JSON.parse(localStorage.getItem(WILDCARD_REMAINING_KEY) || "{}"); } catch (e) {}
+    try { characterDatabase = JSON.parse(localStorage.getItem(CHARACTER_DB_KEY) || "{}"); } catch (e) {}
+    try { enableNotifications = JSON.parse(localStorage.getItem(NOTIFICATION_SETTINGS_KEY) || "true"); } catch (e) {}
+    try { freeVariablesEnabled = JSON.parse(localStorage.getItem(FREE_VARIABLES_KEY) || "true"); } catch (e) {}
+    try { blacklistedCategories = (localStorage.getItem(BLACKLISTED_CATEGORIES_KEY) || "").split(',').map(t => t.trim()).filter(t => t); } catch (e) {}
+    try {
+        const saved = localStorage.getItem(KEYBOARD_SHORTCUTS_KEY);
+        if (saved) {
+            keyboardShortcuts = JSON.parse(saved);
+        } else {
+            keyboardShortcuts = { ...DEFAULT_SHORTCUTS };
+        }
+    } catch (e) {
+        keyboardShortcuts = { ...DEFAULT_SHORTCUTS };
+    }
     try {
         const saved = localStorage.getItem(IMAGE_SETTINGS_KEY);
         if (saved) {
@@ -302,92 +1098,84 @@ Last used: ${last || 'None'}`,
     } catch (e) {
         console.error("Failed to load image settings:", e);
     }
-
-    // Save image settings to storage
-    function saveImageSettings() {
-        localStorage.setItem(IMAGE_SETTINGS_KEY, JSON.stringify(imageSettings));
-    }
-
-// Apply image settings by simulating user interaction more accurately
-function applyImageSettings() {
-
-    // Find the input elements
-    let stepsInput = null;
-    let guidanceInput = null;
-
-    const allContainers = document.querySelectorAll('.image__ASDetail-sc-5d63727e-15');
-    allContainers.forEach(container => {
-        if (container.textContent.includes('Steps')) {
-            stepsInput = container.querySelector('input[type="number"][step="1"]');
-        } else if (container.textContent.includes('Guidance')) {
-            guidanceInput = container.querySelector('input[type="number"][step="0.1"]');
+    try {
+        const saved = localStorage.getItem(WATERMARK_SETTINGS_KEY);
+        if (saved) {
+            watermarkSettings = { ...watermarkSettings, ...JSON.parse(saved) };
         }
-    });
-
-    // Function to simulate user interaction
-    function simulateUserInteraction(input, value) {
-        if (!input) return;
-
-        // Make sure the value is a string
-        const valueStr = String(value);
-
-        // Focus the input
-        input.focus();
-
-        // Select all text
-        input.select();
-
-        // Clear the input
-        document.execCommand('insertText', false, '');
-
-        // Type the new value character by character
-        for (let i = 0; i < valueStr.length; i++) {
-            const char = valueStr[i];
-            document.execCommand('insertText', false, char);
-        }
-
-        // Blur the input
-        input.blur();
-
-        // Check if the value was actually updated
-        setTimeout(() => {
-        }, 100);
+        watermarkEnabled = JSON.parse(localStorage.getItem(WATERMARK_ENABLED_KEY) || "false");
+        watermarkType = localStorage.getItem(WATERMARK_TYPE_KEY) || "text";
+        watermarkImage = localStorage.getItem(WATERMARK_IMAGE_KEY) || null;
+        watermarkImageSize = parseInt(localStorage.getItem(WATERMARK_IMAGE_SIZE_KEY) || "100");
+    } catch (e) {
+        console.error("Failed to load watermark settings:", e);
     }
 
-    // Apply the settings
-    if (stepsInput) {
-        simulateUserInteraction(stepsInput, imageSettings.steps);
-    } else {
+    function saveKeyboardShortcuts() {
+        localStorage.setItem(KEYBOARD_SHORTCUTS_KEY, JSON.stringify(keyboardShortcuts));
     }
 
-    if (guidanceInput) {
-        simulateUserInteraction(guidanceInput, imageSettings.guidance);
-    } else {
-        console.error("Could not find Guidance input element");
+    function saveWatermarkSettings() {
+        localStorage.setItem(WATERMARK_SETTINGS_KEY, JSON.stringify(watermarkSettings));
+        localStorage.setItem(WATERMARK_ENABLED_KEY, JSON.stringify(watermarkEnabled));
+        localStorage.setItem(WATERMARK_TYPE_KEY, watermarkType);
+        localStorage.setItem(WATERMARK_IMAGE_KEY, watermarkImage);
+        localStorage.setItem(WATERMARK_IMAGE_SIZE_KEY, watermarkImageSize.toString());
     }
 
-    showNotification("✅ Image settings applied", 'success');
-}
+    function checkShortcutConflict(shortcut) {
+        if (!shortcut || !shortcut.key) return false;
 
-    try { const saved = localStorage.getItem(STORAGE_KEY); if (saved) profiles = JSON.parse(saved).filter(p => p && p.name).map(p => ({...p, characters: Array.isArray(p.characters) ? p.characters : [] })); } catch (e) {}
-    try { blacklistTags = (localStorage.getItem(BLACKLIST_KEY) || "").split(',').map(t => t.trim().toLowerCase()).filter(t => t); } catch (e) {}
-    try { globalVariables = JSON.parse(localStorage.getItem(GLOBAL_VARIABLES_KEY) || "{}"); } catch (e) {}
-    try { wildcards = JSON.parse(localStorage.getItem(WILDCARDS_KEY) || "{}"); } catch (e) {}
-    try { wildcardRemaining = JSON.parse(localStorage.getItem(WILDCARD_REMAINING_KEY) || "{}"); } catch (e) {}
-    try { characterDatabase = JSON.parse(localStorage.getItem(CHARACTER_DB_KEY) || "{}"); } catch (e) {}
-    try { enableNotifications = JSON.parse(localStorage.getItem(NOTIFICATION_SETTINGS_KEY) || "true"); } catch (e) {}
+        const parts = [];
+        if (shortcut.ctrl) parts.push('ctrl');
+        if (shortcut.alt) parts.push('alt');
+        if (shortcut.shift) parts.push('shift');
+        parts.push(shortcut.key.toLowerCase());
+
+        const shortcutStr = parts.join('+');
+        return BROWSER_SHORTCUTS[shortcutStr] || false;
+    }
+
+    function formatShortcut(shortcut) {
+        if (!shortcut) return '';
+
+        const parts = [];
+        if (shortcut.ctrl) parts.push(t('ctrlKey'));
+        if (shortcut.alt) parts.push(t('altKey'));
+        if (shortcut.shift) parts.push(t('shiftKey'));
+
+        let key = shortcut.key;
+        if (key === ' ') key = t('spaceKey');
+        else if (key === 'Enter') key = t('enterKey');
+        else if (key === 'Escape') key = t('escapeKey');
+        else if (key === 'Tab') key = t('tabKey');
+        else if (key === 'Backspace') key = t('backspaceKey');
+        else if (key === 'Delete') key = t('deleteKey');
+
+        parts.push(key);
+        return parts.join(' + ');
+    }
+
     function saveToStorage() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
         localStorage.setItem(BLACKLIST_KEY, blacklistTags.join(', '));
+        localStorage.setItem(BLACKLISTED_CATEGORIES_KEY, blacklistedCategories.join(', '));
         localStorage.setItem(GLOBAL_VARIABLES_KEY, JSON.stringify(globalVariables));
         localStorage.setItem(WILDCARDS_KEY, JSON.stringify(wildcards));
         localStorage.setItem(WILDCARD_REMAINING_KEY, JSON.stringify(wildcardRemaining));
         localStorage.setItem(CHARACTER_DB_KEY, JSON.stringify(characterDatabase));
+        saveKeyboardShortcuts();
     }
+
+    function saveImageSettings() {
+        localStorage.setItem(IMAGE_SETTINGS_KEY, JSON.stringify(imageSettings));
+    }
+
     function setLastProfile(name) {
         lastProfileName = name;
         localStorage.setItem(LAST_PROFILE_KEY, name);
     }
+
     function getThemeColors() {
         return {
             background: '#1e293b',
@@ -413,6 +1201,7 @@ function applyImageSettings() {
             infoBorder: '#2563eb'
         };
     }
+
     function updateSelectOptions(select, selectedName = null, filteredProfiles = null) {
         select.innerHTML = "";
         const profilesToUse = filteredProfiles || profiles;
@@ -434,13 +1223,16 @@ function applyImageSettings() {
             select.selectedIndex = 0;
         }
     }
+
     function findPositiveEditor() {
         return document.querySelector('.image-gen-prompt-main .ProseMirror') ||
                document.querySelector('.prompt-input-box-prompt .ProseMirror');
     }
+
     function findNegativeEditor() {
         return document.querySelector('.prompt-input-box-undesired-content .ProseMirror');
     }
+
     function findPMView(node, maxDepth = 6) {
         let el = node;
         let depth = 0;
@@ -466,6 +1258,7 @@ function applyImageSettings() {
         }
         return null;
     }
+
     function extractVariables(text) {
         const variables = [];
         const regex = /{([^{}]+)}/g;
@@ -478,6 +1271,7 @@ function applyImageSettings() {
         }
         return variables;
     }
+
     function extractWildcards(text) {
         const wildcards = [];
         const regex = /\[([^\[\]]+)\]/g;
@@ -490,6 +1284,7 @@ function applyImageSettings() {
         }
         return wildcards;
     }
+
     function replaceGlobalVariables(text) {
         if (!text) return text;
         let result = text;
@@ -506,6 +1301,7 @@ function applyImageSettings() {
         }
         return result;
     }
+
     function resolveWildcard(content) {
         const regex = /\[([^\[\]]+)\]/g;
         let match;
@@ -524,15 +1320,15 @@ function applyImageSettings() {
         }
         return result;
     }
+
     function showNotification(message, type = 'info') {
-            if (!enableNotifications) return;
+        if (!enableNotifications) return;
         const colors = getThemeColors();
         let bgColor, borderColor;
         switch(type) {
             case 'success': bgColor = colors.successBg; borderColor = colors.successBorder; break;
             case 'error': bgColor = colors.errorBg; borderColor = colors.errorBorder; break;
             default: bgColor = colors.infoBg; borderColor = colors.infoBorder; break;
-
         }
         const notification = document.createElement('div');
         Object.assign(notification.style, {
@@ -552,6 +1348,98 @@ function applyImageSettings() {
             setTimeout(() => { if (notification.parentNode) document.body.removeChild(notification); }, 300);
         }, 3000);
     }
+    async function fetchDanbooruById(id) {
+        try {
+            showNotification(t('danbooruFetching', id), 'info');
+            const response = await fetch(`https://danbooru.donmai.us/posts/${id}.json`);
+            const data = await response.json();
+
+            if (!data) {
+                showNotification(t('danbooruError', "No data"), 'error');
+                return null;
+            }
+
+            let allTags = [];
+            const isCopyrightBlacklisted = blacklistedCategories.includes('DBCOPYRIGHT');
+            const isCharacterBlacklisted = blacklistedCategories.includes('DBCHARACTER');
+
+            if (!isCharacterBlacklisted && data.tag_string_character) {
+                const characterTags = data.tag_string_character.split(' ').map(tag => tag.replace(/_/g, ' '));
+                allTags.push(...characterTags);
+            }
+
+            if (!isCopyrightBlacklisted && data.tag_string_copyright) {
+                const copyrightTags = data.tag_string_copyright.split(' ').map(tag => tag.replace(/_/g, ' '));
+                allTags.push(...copyrightTags);
+            }
+
+            if (data.tag_string_general) {
+                const generalTags = data.tag_string_general.split(' ').map(tag => tag.replace(/_/g, ' '));
+                let filteredGeneralTags = generalTags;
+                if (blacklistTags.length > 0) {
+                    filteredGeneralTags = generalTags.filter(t => !blacklistTags.includes(t.toLowerCase()));
+                }
+                allTags.push(...filteredGeneralTags);
+            }
+
+            return allTags.join(', ');
+        } catch (err) {
+            console.error(err);
+            showNotification(t('danbooruError', err.message || "Network error"), 'error');
+            return null;
+        }
+    }
+    async function fetchE621ById(id) {
+        try {
+            showNotification(t('e621Fetching', id), 'info');
+            const response = await fetch(`https://e621.net/posts/${id}.json`);
+            const data = await response.json();
+
+            if (!data || !data.post) {
+                showNotification(t('e621Error', "No data"), 'error');
+                return null;
+            }
+
+            const post = data.post;
+            const tags = post.tags || {};
+
+            let allTags = [];
+            const isCopyrightBlacklisted = blacklistedCategories.includes('E621COPYRIGHT');
+            const isCharacterBlacklisted = blacklistedCategories.includes('E621CHARACTER');
+            const isSpeciesBlacklisted = blacklistedCategories.includes('E621SPECIES');
+
+            if (!isCharacterBlacklisted && tags.character) {
+                const characterTags = tags.character.map(tag => tag.replace(/_/g, ' '));
+                allTags.push(...characterTags);
+            }
+
+            if (!isCopyrightBlacklisted && tags.copyright) {
+                const copyrightTags = tags.copyright.map(tag => tag.replace(/_/g, ' '));
+                allTags.push(...copyrightTags);
+            }
+
+            if (!isSpeciesBlacklisted && tags.species) {
+                const speciesTags = tags.species.map(tag => tag.replace(/_/g, ' '));
+                allTags.push(...speciesTags);
+            }
+
+            if (tags.general) {
+                const generalTags = tags.general.map(tag => tag.replace(/_/g, ' '));
+                let filteredGeneralTags = generalTags;
+                if (blacklistTags.length > 0) {
+                    filteredGeneralTags = generalTags.filter(t => !blacklistTags.includes(t.toLowerCase()));
+                }
+                allTags.push(...filteredGeneralTags);
+            }
+
+            return allTags.join(', ');
+        } catch (err) {
+            console.error(err);
+            showNotification(t('e621Error', err.message || "Network error"), 'error');
+            return null;
+        }
+    }
+
     function showVariableWildcardDialog(text, callback, isCharacter = false) {
         const variables = extractVariables(text);
         const extractedWildcards = extractWildcards(text);
@@ -559,16 +1447,25 @@ function applyImageSettings() {
             const options = wildcards[key];
             return Array.isArray(options) && options.length > 0;
         });
-        const undefVars = variables.filter(v => globalVariables[v] === undefined);
-        if (undefVars.length === 0 && wildcardsList.length === 0) {
+        const hasDbVariable = text.includes('{db}');
+        const hasE6Variable = text.includes('{e6}');
+        let undefVars = variables.filter(v => globalVariables[v] === undefined && v !== "db" && v !== "e6");
+
+        if (!freeVariablesEnabled && undefVars.length > 0) {
+            undefVars = [];
+        }
+
+        if (undefVars.length === 0 && wildcardsList.length === 0 && !hasDbVariable && !hasE6Variable) {
             const processedText = replaceGlobalVariables(text);
             callback(processedText);
             return;
         }
-        if (undefVars.length === 0 && wildcardsList.length > 0) {
+
+        if (undefVars.length === 0 && wildcardsList.length > 0 && !hasDbVariable && !hasE6Variable) {
             showWildcardOnlyDialog(text, callback, isCharacter);
             return;
         }
+
         const colors = getThemeColors();
         const modal = document.createElement('div');
         modal.id = 'nai-variable-wildcard-modal';
@@ -581,6 +1478,7 @@ function applyImageSettings() {
             padding: '20px', fontFamily: 'sans-serif', boxSizing: 'border-box',
             display: 'flex', flexDirection: 'column', maxHeight: isMobile ? '85vh' : '80vh'
         });
+
         const contentArea = document.createElement('div');
         contentArea.style.flex = '1';
         contentArea.style.overflowY = 'auto';
@@ -608,6 +1506,39 @@ function applyImageSettings() {
             });
             modalHTML += '</div>';
         }
+        if (hasDbVariable) {
+            modalHTML += `
+                <div style="margin-bottom:20px;">
+                    <div style="font-weight:bold; font-size:16px; margin-bottom:16px;">${t('dbLabel')}</div>
+                    <div style="font-size:13px; margin-bottom:16px; opacity:0.9;">${t('dbDesc')}</div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block; font-size:13px; margin-bottom:4px; opacity:0.9;">Danbooru ID:</label>
+                        <input type="text" id="db-id"
+                               value="${lastId}"
+                               placeholder="${t('dbPlaceholder')}"
+                               style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor};
+                                      background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px;" />
+                    </div>
+                </div>
+            `;
+        }
+        if (hasE6Variable) {
+            modalHTML += `
+                <div style="margin-bottom:20px;">
+                    <div style="font-weight:bold; font-size:16px; margin-bottom:16px;">${t('e621Label')}</div>
+                    <div style="font-size:13px; margin-bottom:16px; opacity:0.9;">${t('e621Desc')}</div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block; font-size:13px; margin-bottom:4px; opacity:0.9;">E621 ID:</label>
+                        <input type="text" id="e6-id"
+                               value="${lastE621Id}"
+                               placeholder="${t('e621Placeholder')}"
+                               style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor};
+                                      background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px;" />
+                    </div>
+                </div>
+            `;
+        }
+
         if (wildcardsList.length > 0) {
             modalHTML += `
                 <div style="font-weight:bold; font-size:16px; margin-bottom:16px;">${t('fillWildcardsTitle')}</div>
@@ -634,6 +1565,7 @@ function applyImageSettings() {
             modalHTML += '</div>';
         }
         contentArea.innerHTML = modalHTML;
+
         const buttonArea = document.createElement('div');
         buttonArea.style.display = 'flex';
         buttonArea.style.gap = '8px';
@@ -669,7 +1601,8 @@ function applyImageSettings() {
             e.stopPropagation();
             document.body.removeChild(modal);
         };
-        const applyBtnClick = (e) => {
+
+        const applyBtnClick = async (e) => {
             e.preventDefault();
             e.stopPropagation();
             let resultText = text;
@@ -682,6 +1615,38 @@ function applyImageSettings() {
                     resultText = resultText.replace(pattern, value);
                 }
             });
+            if (hasDbVariable) {
+                const dbInput = modal.querySelector('#db-id');
+                const dbId = dbInput.value.trim();
+
+                if (dbId && /^\d+$/.test(dbId)) {
+                    lastId = dbId;
+                    localStorage.setItem(LAST_ID_KEY, dbId);
+                    const danbooruTags = await fetchDanbooruById(dbId);
+                    if (danbooruTags) {
+                        resultText = resultText.replace(/{db}/g, danbooruTags);
+                    }
+                } else if (dbId) {
+                    showNotification(t('danbooruInvalidId'), 'error');
+                    return;
+                }
+            }
+            if (hasE6Variable) {
+                const e6Input = modal.querySelector('#e6-id');
+                const e6Id = e6Input.value.trim();
+
+                if (e6Id && /^\d+$/.test(e6Id)) {
+                    lastE621Id = e6Id;
+                    localStorage.setItem(LAST_E621_ID_KEY, e6Id);
+                    const e621Tags = await fetchE621ById(e6Id);
+                    if (e621Tags) {
+                        resultText = resultText.replace(/{e6}/g, e621Tags);
+                    }
+                } else if (e6Id) {
+                    showNotification(t('e621InvalidId'), 'error');
+                    return;
+                }
+            }
             wildcardsList.forEach(wildcard => {
                 const select = modal.querySelector(`#wildcard-${wildcard}`);
                 const value = select.value;
@@ -702,6 +1667,7 @@ function applyImageSettings() {
                     resultText = resultText.replace(pattern, value);
                 }
             });
+
             resultText = replaceGlobalVariables(resultText);
             localStorage.setItem(WILDCARD_REMAINING_KEY, JSON.stringify(wildcardRemaining));
             document.body.removeChild(modal);
@@ -721,12 +1687,14 @@ function applyImageSettings() {
             }
         });
     }
+
     function showWildcardOnlyDialog(text, callback, isCharacter = false) {
         const extractedWildcards = extractWildcards(text);
         const wildcardsList = extractedWildcards.filter(key => {
             const options = wildcards[key];
             return Array.isArray(options) && options.length > 0;
         });
+
         const colors = getThemeColors();
         const modal = document.createElement('div');
         modal.id = 'nai-wildcard-only-modal';
@@ -739,6 +1707,7 @@ function applyImageSettings() {
             padding: '20px', fontFamily: 'sans-serif', boxSizing: 'border-box',
             display: 'flex', flexDirection: 'column', maxHeight: isMobile ? '85vh' : '80vh'
         });
+
         const contentArea = document.createElement('div');
         contentArea.style.flex = '1';
         contentArea.style.overflowY = 'auto';
@@ -768,6 +1737,7 @@ function applyImageSettings() {
         });
         modalHTML += '</div>';
         contentArea.innerHTML = modalHTML;
+
         const buttonArea = document.createElement('div');
         buttonArea.style.display = 'flex';
         buttonArea.style.gap = '8px';
@@ -803,6 +1773,7 @@ function applyImageSettings() {
             e.stopPropagation();
             document.body.removeChild(modal);
         };
+
         const applyBtnClick = (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -846,11 +1817,13 @@ function applyImageSettings() {
             }
         });
     }
+
     async function applyTextToEditor(text, statusEl) {
         if (!text?.trim()) {
             showNotification(t('nothingToPaste'), 'error');
             return false;
         }
+
         showVariableWildcardDialog(text, async (processedText) => {
             const editor = findPositiveEditor();
             if (!editor) {
@@ -911,15 +1884,17 @@ function applyImageSettings() {
         });
         return true;
     }
+
     async function applyTextToNegativeEditor(text, statusEl) {
         if (!text?.trim()) {
-            showNotification(t('nothingToPasteNeg'), 'error');
+            showNotification(t('nothingToAppendNeg'), 'error');
             return false;
         }
+
         showVariableWildcardDialog(text, async (processedText) => {
             const editor = findNegativeEditor();
             if (!editor) {
-                showNotification(t('cantFindNegEditor'), 'error');
+                showNotification(t('cantFindEditor'), 'error');
                 return false;
             }
             const view = findPMView(editor);
@@ -929,7 +1904,7 @@ function applyImageSettings() {
                     tr.delete(0, view.state.doc.content.size);
                     tr.insertText(processedText);
                     view.dispatch(tr);
-                    showNotification(t('doneNegProseMirror'), 'success');
+                    showNotification(t('doneProseMirror'), 'success');
                     return true;
                 } catch (e) {
                     await new Promise(r => setTimeout(r, 100));
@@ -938,7 +1913,7 @@ function applyImageSettings() {
                         tr.delete(0, view.state.doc.content.size);
                         tr.insertText(processedText);
                         view.dispatch(tr);
-                        showNotification(t('doneNegProseMirror'), 'success');
+                        showNotification(t('doneProseMirror'), 'success');
                         return true;
                     } catch (e2) {
                         console.error("Retry failed:", e2);
@@ -957,7 +1932,7 @@ function applyImageSettings() {
                 editor.dispatchEvent(new InputEvent('input', { bubbles: true }));
                 editor.dispatchEvent(new Event('change', { bubbles: true }));
                 if (okIns) {
-                    showNotification(t('negPasted'), 'success');
+                    showNotification(t('pasted'), 'success');
                     return true;
                 }
             } catch (e) {
@@ -976,11 +1951,13 @@ function applyImageSettings() {
         });
         return true;
     }
+
     async function applyTextToEditorAppend(text, statusEl) {
         if (!text?.trim()) {
             showNotification(t('nothingToAppend'), 'error');
             return false;
         }
+
         showVariableWildcardDialog(text, async (processedText) => {
             const editor = findPositiveEditor();
             if (!editor) {
@@ -1054,6 +2031,7 @@ function applyImageSettings() {
         });
         return true;
     }
+
     function insertCharacterPrompts(characters, warningContainer = null) {
         if (!characters || characters.length === 0) return;
         const containers = [
@@ -1077,24 +2055,26 @@ function applyImageSettings() {
                 warningContainer.style.display = 'none';
             }
         }
-let hasVarsOrWC = false;
-for (const char of characters) {
-    if (!char.prompt) continue;
 
-    const variables = extractVariables(char.prompt);
-    const undefVars = variables.filter(v => globalVariables[v] === undefined);
+        let hasVarsOrWC = false;
+        for (const char of characters) {
+            if (!char.prompt) continue;
 
-    const extractedWC = extractWildcards(char.prompt);
-    const availableWC = extractedWC.filter(key => {
-        const options = wildcards[key];
-        return Array.isArray(options) && options.length > 0;
-    });
+            const variables = extractVariables(char.prompt);
+            const undefVars = variables.filter(v => globalVariables[v] === undefined);
 
-    if (undefVars.length > 0 || availableWC.length > 0) {
-        hasVarsOrWC = true;
-        break;
-    }
-}
+            const extractedWC = extractWildcards(char.prompt);
+            const availableWC = extractedWC.filter(key => {
+                const options = wildcards[key];
+                return Array.isArray(options) && options.length > 0;
+            });
+
+            if (undefVars.length > 0 || availableWC.length > 0) {
+                hasVarsOrWC = true;
+                break;
+            }
+        }
+
         if (hasVarsOrWC) {
             const colors = getThemeColors();
             const modal = document.createElement('div');
@@ -1108,6 +2088,7 @@ for (const char of characters) {
                 padding: '20px', fontFamily: 'sans-serif', boxSizing: 'border-box',
                 display: 'flex', flexDirection: 'column', maxHeight: isMobile ? '85vh' : '80vh'
             });
+
             const contentArea = document.createElement('div');
             contentArea.style.flex = '1';
             contentArea.style.overflowY = 'auto';
@@ -1128,6 +2109,7 @@ for (const char of characters) {
                     <div id="char-vars-container"></div>
                 </div>
             `;
+
             const buttonArea = document.createElement('div');
             buttonArea.style.display = 'flex';
             buttonArea.style.gap = '8px';
@@ -1160,7 +2142,9 @@ for (const char of characters) {
 
             const charSelect = modal.querySelector('#char-select');
             const varsContainer = modal.querySelector('#char-vars-container');
+
             const cancelBtnClick = () => document.body.removeChild(modal);
+
             const applyBtnClick = () => {
                 const processedPrompts = [];
                 characters.forEach((char, idx) => {
@@ -1222,7 +2206,7 @@ for (const char of characters) {
                 const idx = parseInt(charSelect.value);
                 const char = characters[idx];
                 if (!char || !char.prompt) {
-                    varsContainer.innerHTML = '<p style="opacity:0.7">No prompt</p>';
+                    varsContainer.innerHTML = '<p style="opacity:0.7">' + t('noPrompt') + '</p>';
                     return;
                 }
                 const variables = extractVariables(char.prompt);
@@ -1230,7 +2214,7 @@ for (const char of characters) {
                 let html = '';
                 const undefVars = variables.filter(v => globalVariables[v] === undefined);
                 if (undefVars.length > 0) {
-                    html += '<div style="margin-bottom:16px;"><h4 style="margin:0 0 8px 0; font-size:14px;">Variables</h4>';
+                    html += '<div style="margin-bottom:16px;"><h4 style="margin:0 0 8px 0; font-size:14px;">' + t('variables') + '</h4>';
                     undefVars.forEach(variable => {
                         const currentValue = globalVariables[variable] || '';
                         html += `
@@ -1247,7 +2231,7 @@ for (const char of characters) {
                     html += '</div>';
                 }
                 if (wildcardsList.length > 0) {
-                    html += '<div style="margin-bottom:16px;"><h4 style="margin:0 0 8px 0; font-size:14px;">Wildcards</h4>';
+                    html += '<div style="margin-bottom:16px;"><h4 style="margin:0 0 8px 0; font-size:14px;">' + t('wildcards') + '</h4>';
                     wildcardsList.forEach(wildcard => {
                         const options = wildcards[wildcard] || [];
                         let optionsHtml = '<option value="__random__">🎲 Random</option>';
@@ -1276,6 +2260,7 @@ for (const char of characters) {
             applyProcessedCharacterPrompts(characters, warningContainer);
         }
     }
+
     function applyProcessedCharacterPromptsWithValues(originalChars, processedPrompts, warningContainer = null) {
         const containers = [
             '.character-prompt-input-1 .ProseMirror',
@@ -1308,6 +2293,7 @@ for (const char of characters) {
             });
         }, 50);
     }
+
     function applyProcessedCharacterPrompts(characters, warningContainer = null) {
         const containers = [
             '.character-prompt-input-1 .ProseMirror',
@@ -1352,6 +2338,453 @@ for (const char of characters) {
             });
         }, 50);
     }
+
+    function startEditingShortcut(input, warning, shortcutId) {
+        input.readOnly = false;
+        input.value = t('pressKey');
+        input.style.backgroundColor = '#3b82f6';
+        input.style.color = 'white';
+
+        let keysPressed = {};
+        let isRecording = false;
+
+        const handleKeyDown = (e) => {
+            if (!isRecording) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (e.key === 'Escape') {
+                finishRecording();
+                return;
+            }
+
+            keysPressed[e.key] = true;
+
+            const hasModifier = e.ctrlKey || e.altKey || e.shiftKey;
+            const isValidKey = !['Control', 'Alt', 'Shift', 'Meta'].includes(e.key);
+
+            if (hasModifier || isValidKey) {
+                let displayText = [];
+                if (e.ctrlKey) displayText.push(t('ctrlKey'));
+                if (e.altKey) displayText.push(t('altKey'));
+                if (e.shiftKey) displayText.push(t('shiftKey'));
+
+                if (isValidKey) {
+                    let key = e.key;
+                    if (key === ' ') key = t('spaceKey');
+                    else if (key.length > 1) {
+                        key = key;
+                    } else {
+                        key = key.toUpperCase();
+                    }
+                    displayText.push(key);
+                }
+                input.value = displayText.join(' + ');
+            }
+        };
+
+        const handleKeyUp = (e) => {
+            if (!isRecording) return;
+
+            delete keysPressed[e.key];
+            const allModifiersReleased = !e.ctrlKey && !e.altKey && !e.shiftKey;
+
+            if (allModifiersReleased && Object.keys(keysPressed).length === 0) {
+                finishRecording();
+            }
+        };
+
+        const finishRecording = () => {
+            isRecording = false;
+
+            const lastValue = input.value;
+            const parts = lastValue.split(' + ').map(p => p.trim());
+            let newShortcut = {
+                ctrl: parts.includes(t('ctrlKey')),
+                alt: parts.includes(t('altKey')),
+                shift: parts.includes(t('shiftKey')),
+                key: ''
+            };
+
+            for (const part of parts) {
+                if (!['Ctrl', 'Alt', 'Shift', t('ctrlKey'), t('altKey'), t('shiftKey')].includes(part)) {
+                    newShortcut.key = part;
+                    break;
+                }
+            }
+
+            if (newShortcut.key) {
+                const hasConflict = checkShortcutConflict(newShortcut);
+                keyboardShortcuts[shortcutId] = newShortcut;
+
+                input.value = formatShortcut(newShortcut);
+                input.readOnly = true;
+                input.style.backgroundColor = '';
+                input.style.color = '';
+
+                if (hasConflict) {
+                    input.classList.add('shortcut-conflict');
+                    warning.style.display = 'block';
+                    showNotification(t('shortcutConflict'), 'error');
+                } else {
+                    input.classList.remove('shortcut-conflict');
+                    warning.style.display = 'none';
+                }
+            } else {
+                input.value = formatShortcut(keyboardShortcuts[shortcutId]);
+                input.readOnly = true;
+                input.style.backgroundColor = '';
+                input.style.color = '';
+            }
+
+            document.removeEventListener('keydown', handleKeyDown, true);
+            document.removeEventListener('keyup', handleKeyUp, true);
+        };
+
+        isRecording = true;
+        document.addEventListener('keydown', handleKeyDown, true);
+        document.addEventListener('keyup', handleKeyUp, true);
+    }
+
+    function addWatermarkToCanvas(canvas, settings) {
+        const ctx = canvas.getContext('2d');
+        ctx.save();
+        ctx.globalAlpha = settings.opacity;
+
+        if (watermarkType === 'text') {
+            ctx.font = `${settings.fontSize}px ${settings.font}`;
+            ctx.fillStyle = settings.color;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = settings.textShadowColor;
+            ctx.shadowBlur = 2;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+
+            const text = settings.text;
+            const textMetrics = ctx.measureText(text);
+            const textWidth = textMetrics.width;
+            const textHeight = settings.fontSize;
+
+            let x, y;
+            const margin = settings.margin;
+
+            switch (settings.position) {
+                case "top-left":
+                    x = margin;
+                    y = margin;
+                    break;
+                case "top-right":
+                    x = canvas.width - textWidth - margin;
+                    y = margin;
+                    break;
+                case "bottom-left":
+                    x = margin;
+                    y = canvas.height - textHeight - margin;
+                    break;
+                case "bottom-right":
+                    x = canvas.width - textWidth - margin;
+                    y = canvas.height - textHeight - margin;
+                    break;
+                case "center":
+                    x = (canvas.width - textWidth) / 2;
+                    y = (canvas.height - textHeight) / 2;
+                    break;
+                default:
+                    x = canvas.width - textWidth - margin;
+                    y = canvas.height - textHeight - margin;
+            }
+            if (!settings.disableBackground) {
+                ctx.fillStyle = settings.backgroundColor;
+                ctx.fillRect(
+                    x - settings.padding,
+                    y - settings.padding,
+                    textWidth + (settings.padding * 2),
+                    textHeight + (settings.padding * 2)
+                );
+            }
+            ctx.fillStyle = settings.color;
+            ctx.fillText(text, x, y);
+
+        } else if (watermarkType === 'image' && watermarkImage) {
+            const img = new Image();
+            return new Promise((resolve) => {
+                img.onload = function() {
+                    let x, y;
+                    const margin = settings.margin;
+                    const imgWidth = watermarkImageSize;
+                    const imgHeight = (img.height / img.width) * watermarkImageSize;
+
+                    switch (settings.position) {
+                        case "top-left":
+                            x = margin;
+                            y = margin;
+                            break;
+                        case "top-right":
+                            x = canvas.width - imgWidth - margin;
+                            y = margin;
+                            break;
+                        case "bottom-left":
+                            x = margin;
+                            y = canvas.height - imgHeight - margin;
+                            break;
+                        case "bottom-right":
+                            x = canvas.width - imgWidth - margin;
+                            y = canvas.height - imgHeight - margin;
+                            break;
+                        case "center":
+                            x = (canvas.width - imgWidth) / 2;
+                            y = (canvas.height - imgHeight) / 2;
+                            break;
+                        default:
+                            x = canvas.width - imgWidth - margin;
+                            y = canvas.height - imgHeight - margin;
+                    }
+                    ctx.drawImage(img, x, y, imgWidth, imgHeight);
+                    ctx.restore();
+                    resolve(canvas);
+                };
+                img.src = watermarkImage;
+            });
+        }
+        ctx.restore();
+        return canvas;
+    }
+
+    function updateWatermarkPreview() {
+        const previewContainer = document.getElementById('watermark-preview-container');
+        if (!previewContainer) return;
+
+        const previewCanvas = document.getElementById('watermark-preview-canvas');
+        if (!previewCanvas) return;
+
+        const ctx = previewCanvas.getContext('2d');
+        previewCanvas.width = 300;
+        previewCanvas.height = 200;
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+        ctx.fillStyle = '#3a3a3a';
+        for (let i = 0; i < 10; i++) {
+            for (let j = 0; j < 7; j++) {
+                if ((i + j) % 2 === 0) {
+                    ctx.fillRect(i * 30, j * 30, 30, 30);
+                }
+            }
+        }
+        if (watermarkType === 'image' && watermarkImage) {
+            const img = new Image();
+            img.onload = function() {
+                let x, y;
+                const margin = watermarkSettings.margin;
+                const imgWidth = Math.min(watermarkImageSize, 100); // Limit preview size
+                const imgHeight = (img.height / img.width) * imgWidth;
+
+                switch (watermarkSettings.position) {
+                    case "top-left":
+                        x = margin;
+                        y = margin;
+                        break;
+                    case "top-right":
+                        x = previewCanvas.width - imgWidth - margin;
+                        y = margin;
+                        break;
+                    case "bottom-left":
+                        x = margin;
+                        y = previewCanvas.height - imgHeight - margin;
+                        break;
+                    case "bottom-right":
+                        x = previewCanvas.width - imgWidth - margin;
+                        y = previewCanvas.height - imgHeight - margin;
+                        break;
+                    case "center":
+                        x = (previewCanvas.width - imgWidth) / 2;
+                        y = (previewCanvas.height - imgHeight) / 2;
+                        break;
+                    default:
+                        x = previewCanvas.width - imgWidth - margin;
+                        y = previewCanvas.height - imgHeight - margin;
+                }
+                ctx.globalAlpha = watermarkSettings.opacity;
+                ctx.drawImage(img, x, y, imgWidth, imgHeight);
+            };
+            img.src = watermarkImage;
+        } else {
+            addWatermarkToCanvas(previewCanvas, watermarkSettings);
+        }
+    }
+
+    function downloadImageWithWatermark(imageUrl, filename) {
+        downloadImageScrubbedManually(imageUrl, filename);
+    }
+
+    function downloadImageScrubbedManually(imageUrl, filename) {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+
+        img.onload = function() {
+            const originalWidth = img.naturalWidth;
+            const originalHeight = img.naturalHeight;
+            const newWidth = originalWidth - 1;
+            const newHeight = originalHeight - 1;
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = originalWidth;
+            tempCanvas.height = originalHeight;
+            tempCtx.drawImage(img, 0, 0);
+            const originalImageData = tempCtx.getImageData(0, 0, originalWidth, originalHeight);
+            const originalData = originalImageData.data;
+            const newImageData = tempCtx.createImageData(newWidth, newHeight);
+            const newData = newImageData.data;
+            for (let y = 0; y < newHeight; y++) {
+                for (let x = 0; x < newWidth; x++) {
+                    const sourceIndex = (y * originalWidth + x) * 4;
+                    const targetIndex = (y * newWidth + x) * 4;
+                    newData[targetIndex] = originalData[sourceIndex];       // R
+                    newData[targetIndex + 1] = originalData[sourceIndex + 1]; // G
+                    newData[targetIndex + 2] = originalData[sourceIndex + 2]; // B
+                    newData[targetIndex + 3] = originalData[sourceIndex + 3]; // A
+                }
+            }
+            const finalCanvas = document.createElement('canvas');
+            const finalCtx = finalCanvas.getContext('2d');
+            finalCanvas.width = newWidth;
+            finalCanvas.height = newHeight;
+            finalCtx.putImageData(newImageData, 0, 0);
+            if (watermarkEnabled) {
+                finalCtx.save();
+                finalCtx.globalAlpha = watermarkSettings.opacity;
+
+                if (watermarkType === 'text') {
+                    finalCtx.font = `${watermarkSettings.fontSize}px ${watermarkSettings.font}`;
+                    finalCtx.fillStyle = watermarkSettings.color;
+                    finalCtx.textAlign = 'left';
+                    finalCtx.textBaseline = 'top';
+                    finalCtx.shadowColor = watermarkSettings.textShadowColor;
+                    finalCtx.shadowBlur = 2;
+                    finalCtx.shadowOffsetX = 1;
+                    finalCtx.shadowOffsetY = 1;
+
+                    const text = watermarkSettings.text;
+                    const textMetrics = finalCtx.measureText(text);
+                    const textWidth = textMetrics.width;
+                    const textHeight = watermarkSettings.fontSize;
+
+                    let x, y;
+                    const margin = watermarkSettings.margin;
+
+                    switch (watermarkSettings.position) {
+                        case "top-left":
+                            x = margin;
+                            y = margin;
+                            break;
+                        case "top-right":
+                            x = finalCanvas.width - textWidth - margin;
+                            y = margin;
+                            break;
+                        case "bottom-left":
+                            x = margin;
+                            y = finalCanvas.height - textHeight - margin;
+                            break;
+                        case "bottom-right":
+                            x = finalCanvas.width - textWidth - margin;
+                            y = finalCanvas.height - textHeight - margin;
+                            break;
+                        case "center":
+                            x = (finalCanvas.width - textWidth) / 2;
+                            y = (finalCanvas.height - textHeight) / 2;
+                            break;
+                        default:
+                            x = finalCanvas.width - textWidth - margin;
+                            y = finalCanvas.height - textHeight - margin;
+                    }
+                    if (!watermarkSettings.disableBackground) {
+                        finalCtx.fillStyle = watermarkSettings.backgroundColor;
+                        finalCtx.fillRect(
+                            x - watermarkSettings.padding,
+                            y - watermarkSettings.padding,
+                            textWidth + (watermarkSettings.padding * 2),
+                            textHeight + (watermarkSettings.padding * 2)
+                        );
+                    }
+                    finalCtx.fillStyle = watermarkSettings.color;
+                    finalCtx.fillText(text, x, y);
+
+                } else if (watermarkType === 'image' && watermarkImage) {
+                    const watermarkImg = new Image();
+                    watermarkImg.onload = function() {
+                        let x, y;
+                        const margin = watermarkSettings.margin;
+                        const imgWidth = watermarkImageSize;
+                        const imgHeight = (watermarkImg.height / watermarkImg.width) * watermarkImageSize;
+
+                        switch (watermarkSettings.position) {
+                            case "top-left":
+                                x = margin;
+                                y = margin;
+                                break;
+                            case "top-right":
+                                x = finalCanvas.width - imgWidth - margin;
+                                y = margin;
+                                break;
+                            case "bottom-left":
+                                x = margin;
+                                y = finalCanvas.height - imgHeight - margin;
+                                break;
+                            case "bottom-right":
+                                x = finalCanvas.width - imgWidth - margin;
+                                y = finalCanvas.height - imgHeight - margin;
+                                break;
+                            case "center":
+                                x = (finalCanvas.width - imgWidth) / 2;
+                                y = (finalCanvas.height - imgHeight) / 2;
+                                break;
+                            default:
+                                x = finalCanvas.width - imgWidth - margin;
+                                y = finalCanvas.height - imgHeight - margin;
+                        }
+                        finalCtx.drawImage(watermarkImg, x, y, imgWidth, imgHeight);
+                        finalCtx.restore();
+                        finalCanvas.toBlob(function(blob) {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = filename || `novelai-image-${Date.now()}.png`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+
+                            showNotification(watermarkEnabled ? t('imageWithWatermark') : t('watermarkRemoved'), 'success');
+                        }, 'image/png', 1.0);
+                    };
+                    watermarkImg.src = watermarkImage;
+                    return; // Exit early for image watermark
+                }
+                finalCtx.restore();
+            }
+            finalCanvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename || `novelai-image-${Date.now()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showNotification(watermarkEnabled ? t('imageWithWatermark') : t('watermarkRemoved'), 'success');
+            }, 'image/png', 1.0);
+        };
+
+        img.onerror = function() {
+            console.error('Failed to load image for processing.');
+            showNotification(t('metadataError'), 'error');
+        };
+
+        img.src = imageUrl;
+    }
+
     function createPanelOnce() {
         if (document.getElementById('nai-profiles-panel')) return;
         const container = document.querySelector('.image-gen-prompt-main') || document.querySelector('.prompt-input-box-prompt');
@@ -1359,29 +2792,32 @@ for (const char of characters) {
             setTimeout(createPanelOnce, 500);
             return;
         }
-    const globalStyle = document.createElement('style');
-    globalStyle.id = 'nai-hidden-scrollbar-style';
-    globalStyle.textContent = `
-        #nai-profiles-panel .char-list-container ::-webkit-scrollbar,
-        .nai-hidden-scrollbar ::-webkit-scrollbar {
-            width: 0 !important;
-            height: 0 !important;
-            display: none !important;
+
+        const globalStyle = document.createElement('style');
+        globalStyle.id = 'nai-hidden-scrollbar-style';
+        globalStyle.textContent = `
+            #nai-profiles-panel .char-list-container ::-webkit-scrollbar,
+            .nai-hidden-scrollbar ::-webkit-scrollbar {
+                width: 0 !important;
+                height: 0 !important;
+                display: none !important;
+            }
+            #nai-profiles-panel .char-list-container {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        `;
+        if (!document.getElementById('nai-hidden-scrollbar-style')) {
+            document.head.appendChild(globalStyle);
         }
-        #nai-profiles-panel .char-list-container {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-    `;
-    if (!document.getElementById('nai-hidden-scrollbar-style')) {
-        document.head.appendChild(globalStyle);
-    }
-        let panel, select, taPositive, taNegative, status, charsList, charWarning, toggle, searchDiv, searchInput, charDBSelect, charDBSearchInput;
+
+        let select, taPositive, taNegative, status, charsList, charWarning, toggle, charDBSelect, charDBSearchInput;
         let savedPos = { x: 10, y: 10 };
         try {
             const posStr = localStorage.getItem(ICON_POS_KEY);
             if (posStr) savedPos = JSON.parse(posStr);
         } catch (e) {}
+
         toggle = document.createElement('div');
         toggle.id = "nai-profiles-toggle";
         Object.assign(toggle.style, {
@@ -1395,8 +2831,10 @@ for (const char of characters) {
         toggle.title = "Drag to move | Click to open";
         toggle.innerHTML = "📝";
         document.body.appendChild(toggle);
+
         let isDragging = false;
         let offsetX = 0, offsetY = 0;
+
         function handleStart(e) {
             if (e.target.tagName === 'BUTTON') return;
             isDragging = true;
@@ -1444,12 +2882,14 @@ for (const char of characters) {
                 }
             }
         }
+
         toggle.addEventListener("mousedown", handleStart);
         document.addEventListener("mousemove", handleMove);
         document.addEventListener("mouseup", handleEnd);
         toggle.addEventListener("touchstart", handleStart, { passive: false });
         toggle.addEventListener("touchmove", handleMove, { passive: false });
         toggle.addEventListener("touchend", handleEnd);
+
         function handleToggleClick(e) {
             e.preventDefault();
             e.stopPropagation();
@@ -1465,6 +2905,7 @@ for (const char of characters) {
 
         toggle.addEventListener("click", handleToggleClick);
         toggle.addEventListener("touchend", handleToggleClick);
+
         function updateCharDBUI(searchTerm = '') {
             const dbKeys = Object.keys(characterDatabase);
             const filteredKeys = dbKeys.filter(key =>
@@ -1510,20 +2951,52 @@ for (const char of characters) {
                 padding: '20px', fontFamily: 'sans-serif', boxSizing: 'border-box'
             });
             modal.innerHTML = `
-                <div style="font-weight:bold; font-size:16px; margin-bottom:16px;">${isEdit ? 'Edit Character' : 'Add Character to Database'}</div>
-                <div style="margin-bottom:12px;"><label style="display:block; font-size:13px; margin-bottom:4px; opacity:0.9;">Character Name:</label><input type="text" id="char-db-name" placeholder="e.g. Hatsune Miku" value="${isEdit ? editName : ''}" style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px;" /></div>
-                <div style="margin-bottom:16px;"><label style="display:block; font-size:13px; margin-bottom:4px; opacity:0.9;">Character Prompt:</label><textarea id="char-db-prompt" rows="4" placeholder="e.g. girl, blue hair, twintail, aqua eyes..." style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px; resize:vertical;">${isEdit ? editPrompt : ''}</textarea></div>
-                <div style="display:flex; gap:8px; justify-content:flex-end;"><button id="cancel-char-db" style="padding:6px 12px; background:${colors.deleteBackground}; color:white; border:none; border-radius:6px; cursor:pointer;">Cancel</button><button id="save-char-db" style="padding:6px 12px; background:${colors.buttonBackground}; color:white; border:none; border-radius:6px; cursor:pointer;">${isEdit ? 'Update' : 'Save'}</button></div>
+                <div style="font-weight:bold; font-size:16px; margin-bottom:16px;">${isEdit ? t('editCharacter') : t('addCharToDB')}</div>
+                <div style="margin-bottom:12px;"><label style="display:block; font-size:13px; margin-bottom:4px; opacity:0.9;">${t('charNameLabel')}</label><input type="text" id="char-db-name" placeholder="e.g. Hatsune Miku" value="${isEdit ? editName : ''}" style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px;" /></div>
+                <div style="margin-bottom:16px;"><label style="display:block; font-size:13px; margin-bottom:4px; opacity:0.9;">${t('charPromptLabel')}</label><textarea id="char-db-prompt" rows="4" placeholder="e.g. girl, blue hair, twintail, aqua eyes..." style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px; resize:vertical;">${isEdit ? editPrompt : ''}</textarea></div>
+                <div style="display:flex; gap:8px; justify-content:flex-end;"><button id="cancel-char-db" style="padding:6px 12px; background:${colors.deleteBackground}; color:white; border:none; border-radius:6px; cursor:pointer;">${t('cancel')}</button><button id="save-char-db" style="padding:6px 12px; background:${colors.buttonBackground}; color:white; border:none; border-radius:6px; cursor:pointer;">${isEdit ? 'Update' : t('saveProfile')}</button></div>
             `;
+            const scrollbarStyle = document.createElement('style');
+            scrollbarStyle.textContent = `
+                #nai-settings-modal #settings-content::-webkit-scrollbar {
+                    width: 8px;
+                }
+                #nai-settings-modal #settings-content::-webkit-scrollbar-track {
+                    background: ${colors.inputBackground};
+                    border-radius: 4px;
+                }
+                #nai-settings-modal #settings-content::-webkit-scrollbar-thumb {
+                    background: ${colors.borderColor};
+                    border-radius: 4px;
+                }
+                #nai-settings-modal #settings-content::-webkit-scrollbar-thumb:hover {
+                    background: ${colors.buttonHover};
+                }
+            `;
+            document.head.appendChild(scrollbarStyle);
+
+            modal.addEventListener('click', e => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                    if (document.head.contains(scrollbarStyle)) {
+                        document.head.removeChild(scrollbarStyle);
+                    }
+                }
+            });
             document.body.appendChild(modal);
+
             const nameInput = modal.querySelector('#char-db-name');
             const promptInput = modal.querySelector('#char-db-prompt');
             const saveBtn = modal.querySelector('#save-char-db');
             const cancelBtn = modal.querySelector('#cancel-char-db');
+
             saveBtn.onclick = () => {
                 const name = nameInput.value.trim();
                 const prompt = promptInput.value.trim();
-                if (!name || !prompt) { showNotification('Name and prompt are required.', 'error'); return; }
+                if (!name || !prompt) {
+                    showNotification(t('namePromptRequired'), 'error');
+                    return;
+                }
                 if (isEdit && name !== editName) {
                     delete characterDatabase[editName];
                 }
@@ -1532,18 +3005,21 @@ for (const char of characters) {
                 localStorage.setItem(CHARACTER_DB_KEY, JSON.stringify(characterDatabase));
                 updateCharDBUI(charDBSearchInput.value);
                 document.body.removeChild(modal);
-                showNotification(`✅ Character "${name}" ${isEdit ? 'updated' : 'added'} to database`, 'success');
+                showNotification(t('charAdded', name), 'success');
                 if (callback) callback();
             };
+
             cancelBtn.onclick = () => {
                 document.body.removeChild(modal);
                 if (callback) callback();
             };
+
             modal.addEventListener('click', e => { if (e.target === modal) {
                 document.body.removeChild(modal);
                 if (callback) callback();
             }});
         }
+
         function openOrganizeCharDBModal() {
             if (document.getElementById('nai-organize-char-db-modal')) return;
 
@@ -1570,6 +3046,7 @@ for (const char of characters) {
                 display: 'flex',
                 flexDirection: 'column'
             });
+
             const header = document.createElement('div');
             header.style.display = 'flex';
             header.style.justifyContent = 'space-between';
@@ -1598,6 +3075,7 @@ for (const char of characters) {
 
             header.appendChild(title);
             header.appendChild(closeBtn);
+
             const searchContainer = document.createElement('div');
             searchContainer.style.marginBottom = '12px';
 
@@ -1615,12 +3093,14 @@ for (const char of characters) {
             });
 
             searchContainer.appendChild(searchInput);
+
             const listContainer = document.createElement('div');
             listContainer.style.flex = '1';
             listContainer.style.overflowY = 'auto';
             listContainer.style.border = `1px solid ${colors.borderColor}`;
             listContainer.style.borderRadius = '6px';
             listContainer.style.padding = '8px';
+
             function updateCharacterList(searchTerm = '') {
                 listContainer.innerHTML = '';
 
@@ -1660,6 +3140,7 @@ for (const char of characters) {
                     const actionsContainer = document.createElement('div');
                     actionsContainer.style.display = 'flex';
                     actionsContainer.style.gap = '4px';
+
                     const editBtn = document.createElement('button');
                     editBtn.innerHTML = '✏️';
                     Object.assign(editBtn.style, {
@@ -1677,6 +3158,7 @@ for (const char of characters) {
                             updateCharDBUI(charDBSearchInput.value);
                         });
                     };
+
                     const renameBtn = document.createElement('button');
                     renameBtn.innerHTML = '📝';
                     Object.assign(renameBtn.style, {
@@ -1689,10 +3171,10 @@ for (const char of characters) {
                         fontSize: '12px'
                     });
                     renameBtn.onclick = () => {
-                        const newName = prompt('Enter new name:', name);
+                        const newName = prompt(t('enterNewName'), name);
                         if (!newName || newName === name) return;
                         if (characterDatabase[newName]) {
-                            showNotification(`Character "${newName}" already exists`, 'error');
+                            showNotification(t('characterExists'), 'error');
                             return;
                         }
                         characterDatabase[newName] = characterDatabase[name];
@@ -1702,6 +3184,7 @@ for (const char of characters) {
                         updateCharDBUI(charDBSearchInput.value);
                         showNotification(t('charRenamed', name, newName), 'success');
                     };
+
                     const deleteBtn = document.createElement('button');
                     deleteBtn.innerHTML = '🗑️';
                     Object.assign(deleteBtn.style, {
@@ -1732,13 +3215,16 @@ for (const char of characters) {
                     listContainer.appendChild(item);
                 });
             }
+
             updateCharacterList();
             searchInput.addEventListener('input', () => {
                 updateCharacterList(searchInput.value);
             });
+
             modal.appendChild(header);
             modal.appendChild(searchContainer);
             modal.appendChild(listContainer);
+
             if (isMobile) {
                 const bottomCloseBtn = document.createElement('button');
                 bottomCloseBtn.textContent = t('close');
@@ -1763,6 +3249,547 @@ for (const char of characters) {
             });
         }
 
+        function openKeyboardShortcutsModal() {
+            if (document.getElementById('nai-keyboard-shortcuts-modal')) return;
+
+            const colors = getThemeColors();
+            const modal = document.createElement('div');
+            modal.id = 'nai-keyboard-shortcuts-modal';
+            Object.assign(modal.style, {
+                position: 'fixed', top: '50%', left: '50%',
+                transform: 'translate(-50%, -50%)', width: isMobile ? '90%' : '600px', maxWidth: '90vw',
+                background: colors.background, color: colors.color,
+                border: `1px solid ${colors.borderColor}`, borderRadius: '12px',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.2)', zIndex: '20000',
+                padding: '20px', fontFamily: 'sans-serif', boxSizing: 'border-box',
+                maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column'
+            });
+
+            const header = document.createElement('div');
+            header.style.display = 'flex';
+            header.style.justifyContent = 'space-between';
+            header.style.alignItems = 'center';
+            header.style.marginBottom = '16px';
+
+            const title = document.createElement('h3');
+            title.textContent = t('shortcutsTitle');
+            title.style.margin = '0';
+            title.style.fontSize = '16px';
+
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '✕';
+            Object.assign(closeBtn.style, {
+                background: 'none',
+                border: 'none',
+                fontSize: '18px',
+                cursor: 'pointer',
+                padding: '4px',
+                borderRadius: '4px',
+                color: colors.color
+            });
+            closeBtn.onmouseover = () => { closeBtn.style.backgroundColor = colors.inputBackground; };
+            closeBtn.onmouseout = () => { closeBtn.style.backgroundColor = 'transparent'; };
+            closeBtn.onclick = () => document.body.removeChild(modal);
+
+            header.appendChild(title);
+            header.appendChild(closeBtn);
+
+            const desc = document.createElement('div');
+            desc.textContent = t('shortcutsDesc');
+            desc.style.fontSize = '13px';
+            desc.style.marginBottom = '16px';
+            desc.style.opacity = '0.9';
+
+            const note = document.createElement('div');
+            note.textContent = t('shortcutsNote');
+            note.style.fontSize = '12px';
+            note.style.marginBottom = '16px';
+            note.style.padding = '8px';
+            note.style.borderRadius = '6px';
+            note.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+            note.style.borderLeft = '3px solid #3b82f6';
+
+            const contentArea = document.createElement('div');
+            contentArea.style.flex = '1';
+            contentArea.style.overflowY = 'auto';
+            contentArea.style.marginBottom = '16px';
+            const shortcuts = [
+                { id: 'newProfile', label: t('newProfileShortcut') },
+                { id: 'saveProfile', label: t('saveProfileShortcut') },
+                { id: 'renameProfile', label: t('renameProfileShortcut') },
+                { id: 'deleteProfile', label: t('deleteProfileShortcut') },
+                { id: 'search', label: t('searchShortcut') },
+                { id: 'override', label: t('overrideShortcut') },
+                { id: 'append', label: t('appendShortcut') },
+                { id: 'addCharacter', label: t('addCharacterShortcut') },
+                { id: 'addToDB', label: t('addToDBShortcut') },
+                { id: 'organize', label: t('organizeShortcut') },
+                { id: 'characterTab', label: t('characterTabShortcut') },
+                { id: 'danbooru', label: t('danbooruShortcut') },
+                { id: 'e621', label: t('e621Shortcut') },
+                { id: 'fullBackup', label: t('fullBackupShortcut') },
+                { id: 'fullRestore', label: t('fullRestoreShortcut') }
+            ];
+
+            shortcuts.forEach(shortcut => {
+                const item = document.createElement('div');
+                item.className = 'shortcut-item';
+
+                const label = document.createElement('div');
+                label.className = 'shortcut-label';
+                label.textContent = shortcut.label;
+
+                const inputContainer = document.createElement('div');
+                inputContainer.style.position = 'relative';
+
+                const input = document.createElement('input');
+                input.className = 'shortcut-input';
+                input.type = 'text';
+                input.readOnly = true;
+                input.value = formatShortcut(keyboardShortcuts[shortcut.id]);
+                input.dataset.shortcutId = shortcut.id;
+
+                const warning = document.createElement('div');
+                warning.className = 'shortcut-warning';
+                warning.textContent = t('shortcutConflictWarning');
+                if (keyboardShortcuts[shortcut.id] && checkShortcutConflict(keyboardShortcuts[shortcut.id])) {
+                    input.classList.add('shortcut-conflict');
+                    warning.style.display = 'block';
+                }
+
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Edit';
+                Object.assign(editBtn.style, {
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    background: colors.buttonBackground,
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    marginLeft: '4px'
+                });
+
+                editBtn.onclick = () => {
+                    startEditingShortcut(input, warning, shortcut.id);
+                };
+
+                inputContainer.appendChild(input);
+                inputContainer.appendChild(editBtn);
+                inputContainer.appendChild(warning);
+
+                item.appendChild(label);
+                item.appendChild(inputContainer);
+                contentArea.appendChild(item);
+            });
+
+            const buttonArea = document.createElement('div');
+            buttonArea.style.display = 'flex';
+            buttonArea.style.gap = '8px';
+            buttonArea.style.justifyContent = 'flex-end';
+            buttonArea.style.paddingTop = '16px';
+            buttonArea.style.borderTop = `1px solid ${colors.borderColor}`;
+
+            const resetBtn = document.createElement('button');
+            resetBtn.textContent = 'Reset to Defaults';
+            Object.assign(resetBtn.style, {
+                padding: '6px 12px', background: '#64748b', color: 'white', border: 'none',
+                borderRadius: '6px', cursor: 'pointer'
+            });
+
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = t('apply');
+            Object.assign(saveBtn.style, {
+                padding: '6px 12px', background: colors.buttonBackground, color: 'white', border: 'none',
+                borderRadius: '6px', cursor: 'pointer'
+            });
+
+            buttonArea.appendChild(resetBtn);
+            buttonArea.appendChild(saveBtn);
+
+            modal.appendChild(header);
+            modal.appendChild(desc);
+            modal.appendChild(note);
+            modal.appendChild(contentArea);
+            modal.appendChild(buttonArea);
+
+            document.body.appendChild(modal);
+
+            resetBtn.onclick = () => {
+                if (confirm('Reset all keyboard shortcuts to default values?')) {
+                    keyboardShortcuts = { ...DEFAULT_SHORTCUTS };
+                    saveKeyboardShortcuts();
+                    document.body.removeChild(modal);
+                    showNotification(t('shortcutSaved'), 'success');
+                    setTimeout(() => openKeyboardShortcutsModal(), 100);
+                }
+            };
+
+            saveBtn.onclick = () => {
+                saveKeyboardShortcuts();
+                document.body.removeChild(modal);
+                showNotification(t('shortcutSaved'), 'success');
+            };
+
+            modal.addEventListener('click', e => {
+                if (e.target === modal) document.body.removeChild(modal);
+            });
+        }
+
+function openWatermarkSettingsModal() {
+    if (document.getElementById('nai-watermark-settings-modal')) return;
+
+    const colors = getThemeColors();
+    const modal = document.createElement('div');
+    modal.id = 'nai-watermark-settings-modal';
+    Object.assign(modal.style, {
+        position: 'fixed', top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)', width: isMobile ? '90%' : '500px', maxWidth: '90vw',
+        background: colors.background, color: colors.color,
+        border: `1px solid ${colors.borderColor}`, borderRadius: '12px',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.2)', zIndex: '20000',
+        padding: '20px', fontFamily: 'sans-serif', boxSizing: 'border-box',
+        maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column'
+    });
+
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
+    header.style.marginBottom = '16px';
+
+    const title = document.createElement('h3');
+    title.textContent = t('watermarkSettings');
+    title.style.margin = '0';
+    title.style.fontSize = '16px';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '✕';
+    Object.assign(closeBtn.style, {
+        background: 'none',
+        border: 'none',
+        fontSize: '18px',
+        cursor: 'pointer',
+        padding: '4px',
+        borderRadius: '4px',
+        color: colors.color
+    });
+    closeBtn.onmouseover = () => { closeBtn.style.backgroundColor = colors.inputBackground; };
+    closeBtn.onmouseout = () => { closeBtn.style.backgroundColor = 'transparent'; };
+    closeBtn.onclick = () => document.body.removeChild(modal);
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+
+    const contentArea = document.createElement('div');
+    contentArea.style.flex = '1';
+    contentArea.style.overflowY = 'auto';
+    contentArea.style.marginBottom = '16px';
+    const watermarkTypeToggle = document.createElement('div');
+    watermarkTypeToggle.className = 'watermark-type-toggle';
+    watermarkTypeToggle.innerHTML = `
+        <div class="watermark-type-option ${watermarkType === 'text' ? 'active' : ''}" data-type="text">${t('textWatermark')}</div>
+        <div class="watermark-type-option ${watermarkType === 'image' ? 'active' : ''}" data-type="image">${t('imageWatermark')}</div>
+    `;
+    const textWatermarkSettings = document.createElement('div');
+    textWatermarkSettings.id = 'text-watermark-settings';
+    textWatermarkSettings.style.display = watermarkType === 'text' ? 'block' : 'none';
+    const imageWatermarkSettings = document.createElement('div');
+    imageWatermarkSettings.id = 'image-watermark-settings';
+    imageWatermarkSettings.style.display = watermarkType === 'image' ? 'block' : 'none';
+    const commonSettings = document.createElement('div');
+    let positionOptions = '';
+    const positions = [
+        { value: 'top-left', label: t('topLeft') },
+        { value: 'top-right', label: t('topRight') },
+        { value: 'bottom-left', label: t('bottomLeft') },
+        { value: 'bottom-right', label: t('bottomRight') },
+        { value: 'center', label: t('center') }
+    ];
+    positions.forEach(pos => {
+        const selected = pos.value === watermarkSettings.position ? 'selected' : '';
+        positionOptions += `<option value="${pos.value}" ${selected}>${pos.label}</option>`;
+    });
+    let fontOptions = '';
+    const fonts = [
+        'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Comic Sans MS', 'Impact', 'Trebuchet MS'
+    ];
+    fonts.forEach(font => {
+        const selected = font === watermarkSettings.font ? 'selected' : '';
+        fontOptions += `<option value="${font}" ${selected}>${font}</option>`;
+    });
+    textWatermarkSettings.innerHTML = `
+        <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:13px; margin-bottom:4px;">${t('watermarkText')}:</label>
+            <input type="text" id="watermark-text" value="${watermarkSettings.text}" style="width:100%; padding:6px; border-radius:4px; border:1px solid ${colors.borderColor}; background:${colors.background}; color:${colors.color}; font-size:13px;">
+        </div>
+
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <div style="flex:1;">
+                <label style="display:block; font-size:13px; margin-bottom:4px;">${t('watermarkFontSize')}:</label>
+                <input type="number" id="watermark-fontsize" value="${watermarkSettings.fontSize}" min="8" max="72" style="width:100%; padding:6px; border-radius:4px; border:1px solid ${colors.borderColor}; background:${colors.background}; color:${colors.color}; font-size:13px;">
+            </div>
+            <div style="flex:1;">
+                <label style="display:block; font-size:13px; margin-bottom:4px;">${t('watermarkFont')}:</label>
+                <select id="watermark-font" style="width:100%; padding:6px; border-radius:4px; border:1px solid ${colors.borderColor}; background:${colors.background}; color:${colors.color}; font-size:13px;">
+                    ${fontOptions}
+                </select>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <div style="flex:1;">
+                <label style="display:block; font-size:13px; margin-bottom:4px;">${t('watermarkColor')}:</label>
+                <input type="color" id="watermark-color" value="${watermarkSettings.color}" style="width:100%; height:32px; border-radius:4px; border:1px solid ${colors.borderColor}; background:${colors.background}; cursor:pointer;">
+            </div>
+            <div style="flex:1;">
+                <label style="display:block; font-size:13px; margin-bottom:4px;">${t('textShadowColor')}:</label>
+                <input type="color" id="watermark-textshadow" value="${watermarkSettings.textShadowColor}" style="width:100%; height:32px; border-radius:4px; border:1px solid ${colors.borderColor}; background:${colors.background}; cursor:pointer;">
+            </div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:13px; margin-bottom:4px;">${t('watermarkBackgroundColor')}:</label>
+            <input type="color" id="watermark-bgcolor" value="${watermarkSettings.backgroundColor}" style="width:100%; height:32px; border-radius:4px; border:1px solid ${colors.borderColor}; background:${colors.background}; cursor:pointer;">
+        </div>
+
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <div style="flex:1;">
+                <label style="display:block; font-size:13px; margin-bottom:4px;">${t('watermarkPadding')} (pixels):</label>
+                <input type="number" id="watermark-padding" value="${watermarkSettings.padding}" min="0" max="20" style="width:100%; padding:6px; border-radius:4px; border:1px solid ${colors.borderColor}; background:${colors.background}; color:${colors.color}; font-size:13px;">
+            </div>
+            <div style="flex:1;">
+                <label style="display:block; font-size:13px; margin-bottom:4px;">${t('watermarkBorderRadius')} (pixels):</label>
+                <input type="number" id="watermark-borderradius" value="${watermarkSettings.borderRadius}" min="0" max="20" style="width:100%; padding:6px; border-radius:4px; border:1px solid ${colors.borderColor}; background:${colors.background}; color:${colors.color}; font-size:13px;">
+            </div>
+        </div>
+
+        <div class="watermark-checkbox-container">
+            <label class="watermark-checkbox">
+                <input type="checkbox" id="disable-background" ${watermarkSettings.disableBackground ? 'checked' : ''}>
+                <span class="watermark-checkmark"></span>
+            </label>
+            <label for="disable-background" class="watermark-label">${t('disableBackground')}</label>
+        </div>
+    `;
+
+    imageWatermarkSettings.innerHTML = `
+        <div class="image-upload-container">
+            <label class="image-upload-label">${t('uploadImage')}:</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <label for="watermark-image-upload" class="image-upload-button">${t('uploadImage')}</label>
+                <input type="file" id="watermark-image-upload" class="image-upload-input" accept="image/png, image/jpeg, image/svg+xml">
+                ${watermarkImage ? '<img id="uploaded-image-preview" class="uploaded-image-preview" src="' + watermarkImage + '">' : ''}
+            </div>
+        </div>
+
+        <div class="watermark-size-control">
+            <span class="watermark-size-label">${t('imageSize')}:</span>
+            <input type="range" id="watermark-image-size-slider" class="watermark-size-slider" min="20" max="300" value="${watermarkImageSize}">
+            <span class="watermark-size-value">${watermarkImageSize}px</span>
+        </div>
+
+        <div class="watermark-checkbox-container">
+            <label class="watermark-checkbox">
+                <input type="checkbox" id="maintain-aspect-ratio" checked>
+                <span class="watermark-checkmark"></span>
+            </label>
+            <label for="maintain-aspect-ratio" class="watermark-label">${t('maintainAspectRatio')}</label>
+        </div>
+    `;
+
+    commonSettings.innerHTML = `
+        <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:13px; margin-bottom:4px;">${t('watermarkPosition')}:</label>
+            <select id="watermark-position" style="width:100%; padding:6px; border-radius:4px; border:1px solid ${colors.borderColor}; background:${colors.background}; color:${colors.color}; font-size:13px;">
+                ${positionOptions}
+            </select>
+        </div>
+
+        <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:13px; margin-bottom:4px;">${t('watermarkOpacity')}:</label>
+            <input type="range" id="watermark-opacity-slider" min="0.1" max="1" step="0.1" value="${watermarkSettings.opacity}" style="width:100%;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; opacity:0.7;">
+                <span>0.1</span>
+                <span id="watermark-opacity-value">${watermarkSettings.opacity}</span>
+                <span>1.0</span>
+            </div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:13px; margin-bottom:4px;">${t('watermarkMargin')} (pixels):</label>
+            <input type="number" id="watermark-margin" value="${watermarkSettings.margin}" min="0" max="100" style="width:100%; padding:6px; border-radius:4px; border:1px solid ${colors.borderColor}; background:${colors.background}; color:${colors.color}; font-size:13px;">
+        </div>
+
+        <div class="watermark-checkbox-container">
+            <label class="watermark-checkbox">
+                <input type="checkbox" id="enable-watermark" ${watermarkEnabled ? 'checked' : ''}>
+                <span class="watermark-checkmark"></span>
+            </label>
+            <label for="enable-watermark" class="watermark-label">${t('enableWatermark')}</label>
+        </div>
+
+        <!-- Watermark Preview -->
+        <div class="watermark-preview-container" id="watermark-preview-container">
+            <div class="watermark-preview-title">${t('watermarkPreview')}</div>
+            <canvas id="watermark-preview-canvas" class="watermark-preview-canvas" width="300" height="200"></canvas>
+        </div>
+    `;
+
+    contentArea.appendChild(watermarkTypeToggle);
+    contentArea.appendChild(textWatermarkSettings);
+    contentArea.appendChild(imageWatermarkSettings);
+    contentArea.appendChild(commonSettings);
+
+    const buttonArea = document.createElement('div');
+    buttonArea.style.display = 'flex';
+    buttonArea.style.gap = '8px';
+    buttonArea.style.justifyContent = 'flex-end';
+    buttonArea.style.paddingTop = '16px';
+    buttonArea.style.borderTop = `1px solid ${colors.borderColor}`;
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = t('cancel');
+    Object.assign(cancelBtn.style, {
+        padding: '6px 12px', background: colors.deleteBackground, color: 'white', border: 'none',
+        borderRadius: '6px', cursor: 'pointer'
+    });
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = t('apply');
+    Object.assign(saveBtn.style, {
+        padding: '6px 12px', background: colors.buttonBackground, color: 'white', border: 'none',
+        borderRadius: '6px', cursor: 'pointer'
+    });
+
+    buttonArea.appendChild(cancelBtn);
+    buttonArea.appendChild(saveBtn);
+
+    modal.appendChild(header);
+    modal.appendChild(contentArea);
+    modal.appendChild(buttonArea);
+
+    document.body.appendChild(modal);
+    const watermarkTypeOptions = modal.querySelectorAll('.watermark-type-option');
+    watermarkTypeOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            watermarkTypeOptions.forEach(opt => opt.classList.remove('active'));
+            option.classList.add('active');
+            const type = option.dataset.type;
+            watermarkType = type;
+
+            if (type === 'text') {
+                textWatermarkSettings.style.display = 'block';
+                imageWatermarkSettings.style.display = 'none';
+            } else {
+                textWatermarkSettings.style.display = 'none';
+                imageWatermarkSettings.style.display = 'block';
+            }
+
+            updateWatermarkPreview();
+        });
+    });
+    const imageUploadInput = modal.querySelector('#watermark-image-upload');
+    imageUploadInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                watermarkImage = event.target.result;
+                const preview = modal.querySelector('#uploaded-image-preview');
+                if (preview) {
+                    preview.src = watermarkImage;
+                } else {
+                    const img = document.createElement('img');
+                    img.id = 'uploaded-image-preview';
+                    img.className = 'uploaded-image-preview';
+                    img.src = watermarkImage;
+                    imageUploadInput.parentNode.appendChild(img);
+                }
+                updateWatermarkPreview();
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+    const imageSizeSlider = modal.querySelector('#watermark-image-size-slider');
+    const imageSizeValue = modal.querySelector('.watermark-size-value');
+    imageSizeSlider.addEventListener('input', () => {
+        watermarkImageSize = parseInt(imageSizeSlider.value);
+        imageSizeValue.textContent = `${watermarkImageSize}px`;
+        updateWatermarkPreview();
+    });
+    const opacitySlider = modal.querySelector('#watermark-opacity-slider');
+    const opacityValue = modal.querySelector('#watermark-opacity-value');
+    opacitySlider.addEventListener('input', () => {
+        watermarkSettings.opacity = parseFloat(opacitySlider.value);
+        opacityValue.textContent = watermarkSettings.opacity;
+        updateWatermarkPreview();
+    });
+    updateWatermarkPreview();
+    const textInputs = [
+        'watermark-text', 'watermark-fontsize', 'watermark-color', 'watermark-position',
+        'watermark-font', 'watermark-bgcolor', 'watermark-padding', 'watermark-borderradius',
+        'watermark-margin', 'disable-background', 'watermark-textshadow'
+    ];
+
+    textInputs.forEach(id => {
+        const element = modal.querySelector(`#${id}`);
+        if (element) {
+            element.addEventListener('input', () => {
+                updateWatermarkSettingsFromModal();
+                updateWatermarkPreview();
+            });
+        }
+    });
+
+    const enableWatermarkCheckbox = modal.querySelector('#enable-watermark');
+    enableWatermarkCheckbox.addEventListener('change', () => {
+        watermarkEnabled = enableWatermarkCheckbox.checked;
+        updateWatermarkPreview();
+    });
+
+    function updateWatermarkSettingsFromModal() {
+        watermarkSettings.text = modal.querySelector('#watermark-text').value;
+        watermarkSettings.fontSize = parseInt(modal.querySelector('#watermark-fontsize').value);
+        watermarkSettings.color = modal.querySelector('#watermark-color').value;
+        watermarkSettings.position = modal.querySelector('#watermark-position').value;
+        watermarkSettings.font = modal.querySelector('#watermark-font').value;
+        watermarkSettings.backgroundColor = modal.querySelector('#watermark-bgcolor').value;
+        watermarkSettings.padding = parseInt(modal.querySelector('#watermark-padding').value);
+        watermarkSettings.borderRadius = parseInt(modal.querySelector('#watermark-borderradius').value);
+        watermarkSettings.margin = parseInt(modal.querySelector('#watermark-margin').value);
+        watermarkSettings.opacity = parseFloat(modal.querySelector('#watermark-opacity-slider').value);
+        watermarkSettings.disableBackground = modal.querySelector('#disable-background').checked;
+        watermarkSettings.textShadowColor = modal.querySelector('#watermark-textshadow').value;
+    }
+    const originalWatermarkSettings = { ...watermarkSettings };
+    const originalWatermarkEnabled = watermarkEnabled;
+    const originalWatermarkType = watermarkType;
+    const originalWatermarkImage = watermarkImage;
+    const originalWatermarkImageSize = watermarkImageSize;
+
+    cancelBtn.onclick = () => {
+        Object.assign(watermarkSettings, originalWatermarkSettings);
+        watermarkEnabled = originalWatermarkEnabled;
+        watermarkType = originalWatermarkType;
+        watermarkImage = originalWatermarkImage;
+        watermarkImageSize = originalWatermarkImageSize;
+        document.body.removeChild(modal);
+    };
+
+    saveBtn.onclick = () => {
+        updateWatermarkSettingsFromModal();
+        watermarkEnabled = modal.querySelector('#enable-watermark').checked;
+        saveWatermarkSettings();
+        document.body.removeChild(modal);
+        showNotification('Watermark settings saved', 'success');
+    };
+
+    modal.addEventListener('click', e => {
+        if (e.target === modal) document.body.removeChild(modal);
+    });
+}
+
         function createPanel() {
             const colors = getThemeColors();
             panel = document.createElement("div");
@@ -1780,29 +3807,34 @@ for (const char of characters) {
                 padding: isMobile ? "16px" : "12px", fontFamily: "sans-serif", boxSizing: "border-box",
                 fontSize: isMobile ? "14px" : "13px", display: "none"
             });
-if (!document.getElementById('nai-hidden-scrollbar-style')) {
-    const style = document.createElement('style');
-    style.id = 'nai-hidden-scrollbar-style';
-    style.textContent = `
-        #nai-profiles-panel .char-list-container {
-            -ms-overflow-style: none; /* IE/Edge */
-            scrollbar-width: none;   /* Firefox */
-        }
-        #nai-profiles-panel .char-list-container::-webkit-scrollbar {
-            width: 0 !important;
-            height: 0 !important;
-            display: none !important;
-        }
-    `;
-    document.head.appendChild(style);
-}
+
+            if (!document.getElementById('nai-hidden-scrollbar-style')) {
+                const style = document.createElement('style');
+                style.id = 'nai-hidden-scrollbar-style';
+                style.textContent = `
+                    #nai-profiles-panel .char-list-container {
+                        -ms-overflow-style: none; /* IE/Edge */
+                        scrollbar-width: none;   /* Firefox */
+                    }
+                    #nai-profiles-panel .char-list-container::-webkit-scrollbar {
+                        width: 0 !important;
+                        height: 0 !important;
+                        display: none !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
             document.body.appendChild(panel);
+
             const header = document.createElement("div");
             header.style.display = "flex"; header.style.justifyContent = "space-between";
             header.style.alignItems = "center"; header.style.marginBottom = "10px";
+
             const title = document.createElement("h3");
             title.style.margin = "0"; title.style.fontSize = isMobile ? "16px" : "14px"; title.style.fontWeight = "bold";
             title.textContent = t('profilesTitle');
+
             const minimizeBtn = document.createElement("button");
             minimizeBtn.innerHTML = "−";
             Object.assign(minimizeBtn.style, {
@@ -1825,6 +3857,7 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
             });
             closeBtn.onmouseover = () => { closeBtn.style.backgroundColor = colors.inputBackground; };
             closeBtn.onmouseout = () => { closeBtn.style.backgroundColor = "transparent"; };
+
             const handleClose = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1837,25 +3870,38 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
 
             header.appendChild(title); header.appendChild(minimizeBtn); header.appendChild(closeBtn);
             panel.appendChild(header);
+
             const panelContent = document.createElement("div");
             panelContent.id = "panel-content";
+
             const tabContainer = document.createElement("div");
             tabContainer.style.marginBottom = "8px";
 
-            const tabButtons = document.createElement("div");
+            tabButtons = document.createElement("div");
+            tabButtons.className = "tab-buttons";
             tabButtons.style.display = "flex";
             tabButtons.style.marginBottom = "8px";
-            tabButtons.style.flexWrap = isMobile ? "wrap" : "nowrap";
+            if (isMobile) {
+                tabButtons.style.flexWrap = "nowrap";
+                tabButtons.style.overflowX = "auto";
+                tabButtons.style.width = "100%";
+                tabButtons.style.scrollbarWidth = "none";
+                tabButtons.style.msOverflowStyle = "none";
+            } else {
+                tabButtons.style.flexWrap = "nowrap";
+            }
 
             const tabContent = document.createElement("div");
             tabContent.style.padding = "8px";
             tabContent.style.border = `1px solid ${colors.borderColor}`;
             tabContent.style.borderRadius = "6px";
+
             const tabs = [
                 { id: "profile", name: t('profileTab'), active: true },
                 { id: "character", name: t('characterTab'), active: false },
                 { id: "utility", name: t('utilityTab'), active: false },
                 { id: "settings", name: t('settingsTab'), active: false }
+
             ];
 
             tabs.forEach(tab => {
@@ -1863,19 +3909,21 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 tabBtn.textContent = tab.name;
                 tabBtn.className = "nai-responsive-text";
                 Object.assign(tabBtn.style, {
-                    padding: isMobile ? "8px 12px" : "6px 12px",
+                    padding: isMobile ? "8px 6px" : "6px 12px",
                     borderRadius: "6px 6px 0 0",
                     border: "none",
                     background: tab.active ? colors.buttonBackground : colors.inputBackground,
                     color: "white",
                     cursor: "pointer",
-                    fontSize: isMobile ? "12px" : "12px",
+                    fontSize: isMobile ? "11px" : "12px",
                     marginRight: "2px",
                     marginBottom: isMobile ? "4px" : "0",
                     flex: isMobile ? "1" : "none",
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis'
+                    textOverflow: 'ellipsis',
+                    minWidth: isMobile ? "60px" : "auto",
+                    maxWidth: isMobile ? "80px" : "none"
                 });
 
                 tabBtn.onclick = () => {
@@ -1894,13 +3942,16 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
 
                 tabButtons.appendChild(tabBtn);
             });
+            characterTabBtn = Array.from(tabButtons.children).find(b => b.textContent === t('characterTab'));
 
             tabContainer.appendChild(tabButtons);
             tabContainer.appendChild(tabContent);
             panelContent.appendChild(tabContainer);
+
             const profileTab = document.createElement("div");
             profileTab.id = "tab-profile";
             profileTab.className = "tab-content";
+
             searchDiv = document.createElement("div");
             searchDiv.style.marginBottom = "8px";
             searchDiv.style.display = "none";
@@ -1924,7 +3975,6 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
             selectDiv.appendChild(select);
             profileTab.appendChild(selectDiv);
 
-            // MOBILE FIX: Create a container for Override and Append buttons
             const mobileActionButtons = document.createElement("div");
             if (isMobile) {
                 mobileActionButtons.className = "mobile-action-buttons";
@@ -1934,7 +3984,7 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 mobileActionButtons.style.marginBottom = "8px";
             }
 
-            const overrideBtn = document.createElement("button");
+            overrideBtn = document.createElement("button");
             overrideBtn.textContent = t('override');
             overrideBtn.className = "nai-responsive-button";
             Object.assign(overrideBtn.style, {
@@ -1971,7 +4021,7 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 showNotification(`✅ Applied current editor content`, 'success');
             };
 
-            const appendBtn = document.createElement("button");
+            appendBtn = document.createElement("button");
             appendBtn.textContent = t('append');
             appendBtn.className = "nai-responsive-button";
             Object.assign(appendBtn.style, {
@@ -2000,7 +4050,6 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 showNotification(`✅ Appended current editor content`, 'success');
             };
 
-            // Add buttons to the container
             mobileActionButtons.appendChild(overrideBtn);
             mobileActionButtons.appendChild(appendBtn);
             profileTab.appendChild(mobileActionButtons);
@@ -2012,7 +4061,7 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
             profileMenuRow.style.position = "relative";
 
             const profileMenuBtn = document.createElement("button");
-            profileMenuBtn.textContent = "📁 Profile";
+            profileMenuBtn.textContent = t('profileMenu');
             profileMenuBtn.className = "nai-responsive-button";
             Object.assign(profileMenuBtn.style, {
                 width: "100%",
@@ -2025,6 +4074,7 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 fontSize: isMobile ? "14px" : "12px",
                 minHeight: isMobile ? "44px" : "auto"
             });
+
             const profileDropdown = document.createElement("div");
             profileDropdown.style.display = "none";
             profileDropdown.style.backgroundColor = colors.inputBackground;
@@ -2035,6 +4085,7 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
             profileDropdown.style.top = "100%";
             profileDropdown.style.left = "0";
             profileDropdown.style.marginTop = "2px";
+
             if (isMobile) {
                 profileDropdown.style.position = "fixed";
                 profileDropdown.style.top = "50%";
@@ -2045,8 +4096,9 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 profileDropdown.style.maxHeight = "60vh";
                 profileDropdown.style.overflowY = "auto";
             }
-            const saveBtn = document.createElement("div");
-            saveBtn.textContent = "💾 Save";
+
+            saveBtn = document.createElement("div");
+            saveBtn.textContent = t('saveProfile');
             Object.assign(saveBtn.style, {
                 padding: isMobile ? "12px 8px" : "8px 12px",
                 cursor: "pointer",
@@ -2067,13 +4119,16 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 if (!profile) return;
                 profile.positive = taPositive.value.trim();
                 profile.negative = taNegative.value.trim();
+                if (panelStepsInput) profile.steps = parseInt(panelStepsInput.value) || 28;
+                if (panelGuidanceInput) profile.guidance = parseFloat(panelGuidanceInput.value) || 5.0;
+
                 saveToStorage();
                 showNotification(t('savedProfile', name), 'success');
                 profileDropdown.style.display = "none";
             };
 
-            const newBtn = document.createElement("div");
-            newBtn.textContent = "🆕 New";
+            newBtn = document.createElement("div");
+            newBtn.textContent = t('newProfile');
             Object.assign(newBtn.style, {
                 padding: isMobile ? "12px 8px" : "8px 12px",
                 cursor: "pointer",
@@ -2092,17 +4147,26 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                     return;
                 }
                 const newProfile = {
-                    name, positive: taPositive.value.trim(), negative: taNegative.value.trim(), characters: []
+                    name,
+                    positive: "",
+                    negative: "",
+                    characters: [],
+                    steps: panelStepsInput ? parseInt(panelStepsInput.value) || 28 : 28,
+                    guidance: panelGuidanceInput ? parseFloat(panelGuidanceInput.value) || 5.0 : 5.0
                 };
                 profiles.push(newProfile);
                 saveToStorage();
                 updateSelectOptions(select, name);
+                taPositive.value = "";
+                taNegative.value = "";
+                updateCharListUI();
+                updateCharDBUI();
                 showNotification(t('createdProfile', name), 'success');
                 profileDropdown.style.display = "none";
             };
 
-            const renameBtn = document.createElement("div");
-            renameBtn.textContent = "✏️ Rename";
+            renameBtn = document.createElement("div");
+            renameBtn.textContent = t('renameProfile');
             Object.assign(renameBtn.style, {
                 padding: isMobile ? "12px 8px" : "8px 12px",
                 cursor: "pointer",
@@ -2136,8 +4200,8 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 profileDropdown.style.display = "none";
             };
 
-            const deleteBtn = document.createElement("div");
-            deleteBtn.textContent = "🗑️ Delete";
+            deleteBtn = document.createElement("div");
+            deleteBtn.textContent = t('deleteProfile');
             Object.assign(deleteBtn.style, {
                 padding: isMobile ? "12px 8px" : "8px 12px",
                 cursor: "pointer",
@@ -2173,8 +4237,8 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 profileDropdown.style.display = "none";
             };
 
-            const swapBtn = document.createElement("div");
-            swapBtn.textContent = "🔁 Swap Position";
+            swapBtn = document.createElement("div");
+            swapBtn.textContent = t('swapPosition');
             Object.assign(swapBtn.style, {
                 padding: isMobile ? "12px 8px" : "8px 12px",
                 cursor: "pointer",
@@ -2215,8 +4279,8 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 profileDropdown.style.display = "none";
             };
 
-            const clearAllBtn = document.createElement("div");
-            clearAllBtn.textContent = "💥 Clear All";
+            clearAllBtn = document.createElement("div");
+            clearAllBtn.textContent = t('clearAll');
             Object.assign(clearAllBtn.style, {
                 padding: isMobile ? "12px 8px" : "8px 12px",
                 cursor: "pointer",
@@ -2234,6 +4298,7 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 showNotification(t('clearedAll'), 'info');
                 profileDropdown.style.display = "none";
             };
+
             if (isMobile) {
                 const closeDropdownBtn = document.createElement("div");
                 closeDropdownBtn.textContent = t('close');
@@ -2251,6 +4316,7 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                     marginTop: "8px",
                     fontWeight: "bold"
                 });
+
                 const handleDropdownClose = (e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -2268,7 +4334,7 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
                 dropdownHeader.style.marginBottom = "4px";
 
                 const dropdownTitle = document.createElement("div");
-                dropdownTitle.textContent = "Profile Options";
+                dropdownTitle.textContent = t('profileOptions');
                 dropdownTitle.style.fontWeight = "bold";
                 dropdownTitle.style.fontSize = "16px";
 
@@ -2314,23 +4380,18 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
             taDiv.appendChild(taNegative);
             profileTab.appendChild(taDiv);
 
-            // --- START: MODIFIED IMAGE SETTINGS SECTION ---
             const imageSettingsContainer = document.createElement("div");
             imageSettingsContainer.className = "image-settings-container";
-
-            // MOBILE FIX: Hide image settings for mobile users
             if (isMobile) {
                 imageSettingsContainer.style.display = "none";
             }
 
-            // Row: Steps, Guidance, and Apply Button in one line
             const settingsRow = document.createElement("div");
             settingsRow.className = "image-settings-row";
             settingsRow.style.display = "flex";
             settingsRow.style.alignItems = "center";
             settingsRow.style.gap = "8px";
 
-            // Steps
             const stepsContainer = document.createElement("div");
             stepsContainer.style.display = "flex";
             stepsContainer.style.alignItems = "center";
@@ -2354,21 +4415,29 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
             stepsInput.min = "1";
             stepsInput.max = "50";
             stepsInput.value = imageSettings.steps;
+            panelStepsInput = stepsInput;
             stepsInput.addEventListener('change', () => {
-                imageSettings.steps = parseInt(stepsInput.value) || 28;
-                saveImageSettings();
+                const name = select.value;
+                if (name) {
+                    const profile = profiles.find(p => p.name === name);
+                    if (profile) {
+                        profile.steps = parseInt(stepsInput.value) || 28;
+                        saveToStorage();
+                    }
+                } else {
+                    imageSettings.steps = parseInt(stepsInput.value) || 28;
+                    saveImageSettings();
+                }
             });
 
             stepsContainer.appendChild(stepsLabel);
             stepsContainer.appendChild(stepsInput);
 
-            // Separator
             const separator1 = document.createElement("span");
             separator1.textContent = "|";
             separator1.style.margin = "0 4px";
             separator1.style.color = "#94a3b8";
 
-            // Guidance
             const guidanceContainer = document.createElement("div");
             guidanceContainer.style.display = "flex";
             guidanceContainer.style.alignItems = "center";
@@ -2393,23 +4462,31 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
             guidanceInput.max = "20";
             guidanceInput.step = "0.1";
             guidanceInput.value = imageSettings.guidance;
+            panelGuidanceInput = guidanceInput;
             guidanceInput.addEventListener('change', () => {
-                imageSettings.guidance = parseFloat(guidanceInput.value) || 5.0;
-                saveImageSettings();
+                const name = select.value;
+                if (name) {
+                    const profile = profiles.find(p => p.name === name);
+                    if (profile) {
+                        profile.guidance = parseFloat(guidanceInput.value) || 5.0;
+                        saveToStorage();
+                    }
+                } else {
+                    imageSettings.guidance = parseFloat(guidanceInput.value) || 5.0;
+                    saveImageSettings();
+                }
             });
 
             guidanceContainer.appendChild(guidanceLabel);
             guidanceContainer.appendChild(guidanceInput);
 
-            // Separator
             const separator2 = document.createElement("span");
             separator2.textContent = "|";
             separator2.style.margin = "0 4px";
             separator2.style.color = "#94a3b8";
 
-            // Apply Button with Checkmark Icon
             const applySettingsBtn = document.createElement("button");
-            applySettingsBtn.innerHTML = "✅"; // Using checkmark icon instead of text
+            applySettingsBtn.innerHTML = "✅";
             applySettingsBtn.className = "nai-responsive-button";
             applySettingsBtn.style.padding = isMobile ? "6px 8px" : "4px 8px";
             applySettingsBtn.style.borderRadius = "4px";
@@ -2423,7 +4500,6 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
             applySettingsBtn.style.justifyContent = "center";
             applySettingsBtn.addEventListener('click', applyImageSettings);
 
-            // Add all elements to the settings row
             settingsRow.appendChild(stepsContainer);
             settingsRow.appendChild(separator1);
             settingsRow.appendChild(guidanceContainer);
@@ -2431,43 +4507,38 @@ if (!document.getElementById('nai-hidden-scrollbar-style')) {
             settingsRow.appendChild(applySettingsBtn);
 
             imageSettingsContainer.appendChild(settingsRow);
-
-            // Add the image settings container to the profileTab
             profileTab.appendChild(imageSettingsContainer);
-            // --- END: MODIFIED IMAGE SETTINGS SECTION ---
 
             const generateBtn = document.createElement("button");
             generateBtn.textContent = t('generate');
             generateBtn.className = "nai-responsive-button";
             Object.assign(generateBtn.style, {
-    width: "100%",
-    padding: isMobile ? "12px" : "6px",
-    borderRadius: "6px",
-    border: "1px solid #7c7850",
-    backgroundColor: "rgb(245, 243, 194)",
-    color: "black",
-    cursor: "pointer",
-    fontSize: isMobile ? "14px" : "12px",
-    fontWeight: "bold",
-    marginTop: "6px",
-    fontFamily: "inherit",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-    minHeight: isMobile ? "44px" : "auto"
-});
-generateBtn.onmouseover = () => {
-    generateBtn.style.backgroundColor = "#e8e5b0";
-};
-generateBtn.onmouseout = () => {
-    generateBtn.style.backgroundColor = "rgb(245, 243, 194)";
-};
+                width: "100%",
+                padding: isMobile ? "12px" : "6px",
+                borderRadius: "6px",
+                border: "1px solid #7c7850",
+                backgroundColor: "rgb(245, 243, 194)",
+                color: "black",
+                cursor: "pointer",
+                fontSize: isMobile ? "14px" : "12px",
+                fontWeight: "bold",
+                marginTop: "6px",
+                fontFamily: "inherit",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                minHeight: isMobile ? "44px" : "auto"
+            });
+            generateBtn.onmouseover = () => {
+                generateBtn.style.backgroundColor = "#e8e5b0";
+            };
+            generateBtn.onmouseout = () => {
+                generateBtn.style.backgroundColor = "rgb(245, 243, 194)";
+            };
 
-            // MOBILE FIX: Hide Generate button for mobile users
             if (isMobile) {
                 generateBtn.style.display = "none";
             }
 
             generateBtn.onclick = () => {
-                // Apply image settings before generating
                 applyImageSettings();
 
                 const findGenerateButton = () => {
@@ -2494,9 +4565,10 @@ generateBtn.onmouseout = () => {
 
                     return null;
                 };
+
                 const clickButtonRobustly = (btn) => {
                     if (!btn) return;
-                    showNotification('🎨 Generating image...', 'info');
+                    showNotification(t('generatingImage'), 'info');
                     try {
                         btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         setTimeout(() => {
@@ -2515,6 +4587,7 @@ generateBtn.onmouseout = () => {
                         });
                     }
                 };
+
                 const attemptClick = () => {
                     const button = findGenerateButton();
                     if (button) {
@@ -2523,12 +4596,13 @@ generateBtn.onmouseout = () => {
                     }
                     return false;
                 };
+
                 if (!attemptClick()) {
                     setTimeout(attemptClick, 500);
                     setTimeout(attemptClick, 1500);
                     setTimeout(() => {
                         if (!attemptClick()) {
-                            showNotification('❌ Could not find or click the generate button. The page structure might have changed.', 'error');
+                            showNotification(t('cantFindGenerateBtn'), 'error');
                         }
                     }, 3000);
                 }
@@ -2536,6 +4610,7 @@ generateBtn.onmouseout = () => {
             profileTab.appendChild(generateBtn);
 
             tabContent.appendChild(profileTab);
+
             const characterTab = document.createElement("div");
             characterTab.id = "tab-character";
             characterTab.className = "tab-content";
@@ -2543,13 +4618,16 @@ generateBtn.onmouseout = () => {
 
             const charSection = document.createElement("div");
             charSection.style.marginBottom = "8px";
+
             const charHeader = document.createElement("div");
             charHeader.style.display = "flex"; charHeader.style.justifyContent = "space-between";
             charHeader.style.alignItems = "center"; charHeader.style.marginBottom = "6px";
+
             const charTitle = document.createElement("h4");
             charTitle.style.margin = "0"; charTitle.style.fontSize = isMobile ? "15px" : "13px"; charTitle.style.fontWeight = "bold";
-            charTitle.textContent = "Characters";
-            const addCharBtn = document.createElement("button");
+            charTitle.textContent = t('characterTab');
+
+            addCharBtn = document.createElement("button");
             addCharBtn.textContent = t('addCharacter');
             addCharBtn.className = "nai-responsive-button";
             Object.assign(addCharBtn.style, {
@@ -2565,36 +4643,45 @@ generateBtn.onmouseout = () => {
                 const profile = profiles.find(p => p.name === name);
                 if (profile) openCharacterModal(profile);
             };
+
             charHeader.appendChild(charTitle); charHeader.appendChild(addCharBtn);
             charSection.appendChild(charHeader);
+
             charsList = document.createElement("div");
             charsList.style.minHeight = "40px";
             charSection.appendChild(charsList);
+
             charWarning = document.createElement("div");
             charWarning.style.display = "none";
             charSection.appendChild(charWarning);
+
             characterTab.appendChild(charSection);
+
             const charDBSection = document.createElement("div");
             charDBSection.style.marginTop = "16px";
+
             const charDBHeader = document.createElement("div");
             charDBHeader.style.display = "flex"; charDBHeader.style.justifyContent = "space-between";
             charDBHeader.style.alignItems = "center"; charDBHeader.style.marginBottom = "6px";
+
             const charDBTitle = document.createElement("h4");
             charDBTitle.style.margin = "0"; charDBTitle.style.fontSize = isMobile ? "15px" : "13px"; charDBTitle.style.fontWeight = "bold";
-            charDBTitle.textContent = "Character Database";
+            charDBTitle.textContent = t('characterDB');
+
             const buttonContainer = document.createElement("div");
             buttonContainer.style.display = "flex";
             buttonContainer.style.gap = "6px";
 
-            const addCharDBBtn = document.createElement("button");
-            addCharDBBtn.textContent = "Add to DB";
+            addCharDBBtn = document.createElement("button");
+            addCharDBBtn.textContent = t('addToDB');
             addCharDBBtn.className = "nai-responsive-button";
             Object.assign(addCharDBBtn.style, {
                 padding: isMobile ? "8px 12px" : "4px 8px", borderRadius: "4px", border: "none",
                 background: colors.buttonBackground, color: "white", cursor: "pointer", fontSize: isMobile ? "12px" : "11px"
             });
             addCharDBBtn.onclick = () => openCharacterDBModal();
-            const organizeCharDBBtn = document.createElement("button");
+
+            organizeCharDBBtn = document.createElement("button");
             organizeCharDBBtn.textContent = t('organizeCharDB');
             organizeCharDBBtn.className = "nai-responsive-button";
             Object.assign(organizeCharDBBtn.style, {
@@ -2614,6 +4701,7 @@ generateBtn.onmouseout = () => {
             charDBHeader.appendChild(charDBTitle);
             charDBHeader.appendChild(buttonContainer);
             charDBSection.appendChild(charDBHeader);
+
             const charDBSelectContainer = document.createElement("div");
             charDBSelectContainer.style.display = "flex";
             charDBSelectContainer.style.gap = "6px";
@@ -2655,7 +4743,7 @@ generateBtn.onmouseout = () => {
                     saveToStorage();
                     updateCharListUI();
                     insertCharacterPrompts(profile.characters, charWarning);
-                    showNotification(`✅ Added "${selectedCharName}" to profile`, 'success');
+                    showNotification(t('charAddedToProfile', selectedCharName), 'success');
                 } else {
                     showNotification(t('pickProfileFirst'), 'error');
                 }
@@ -2664,6 +4752,7 @@ generateBtn.onmouseout = () => {
             charDBSelectContainer.appendChild(charDBSelect);
             charDBSelectContainer.appendChild(addSelectedBtn);
             charDBSection.appendChild(charDBSelectContainer);
+
             charDBSearchInput = document.createElement("input");
             charDBSearchInput.type = "text";
             charDBSearchInput.placeholder = t('searchCharDB');
@@ -2684,61 +4773,263 @@ generateBtn.onmouseout = () => {
 
             characterTab.appendChild(charDBSection);
 
+            let quickAddSection;
+            const quickAddSectionContainer = document.createElement("div");
+            quickAddSectionContainer.style.marginTop = "16px";
+            quickAddSection = document.createElement("div");
+            quickAddSection.style.padding = "12px";
+            quickAddSection.style.border = `1px solid ${colors.borderColor}`;
+            quickAddSection.style.borderRadius = "6px";
+            quickAddSection.style.backgroundColor = colors.inputBackground;
+
+            const quickAddTitle = document.createElement("h4");
+            quickAddTitle.style.margin = "0 0 8px 0";
+            quickAddTitle.style.fontSize = isMobile ? "15px" : "13px";
+            quickAddTitle.style.fontWeight = "bold";
+            quickAddTitle.textContent = t('quickAddTitle');
+            quickAddSection.appendChild(quickAddTitle);
+
+            const quickAddSelectContainer = document.createElement("div");
+            quickAddSelectContainer.style.display = "flex";
+            quickAddSelectContainer.style.gap = "6px";
+            quickAddSelectContainer.style.marginBottom = "8px";
+
+            const quickAddSelect = document.createElement("select");
+            Object.assign(quickAddSelect.style, {
+                flex: "1",
+                padding: isMobile ? "10px" : "6px",
+                borderRadius: "6px",
+                border: `1px solid ${colors.borderColor}`,
+                background: colors.background,
+                color: colors.color,
+                fontSize: isMobile ? "14px" : "13px"
+            });
+
+            const quickAddButtonsContainer = document.createElement("div");
+            quickAddButtonsContainer.style.display = "flex";
+            quickAddButtonsContainer.style.gap = "6px";
+
+            const quickAddOverrideBtn = document.createElement("button");
+            quickAddOverrideBtn.textContent = t('override');
+            quickAddOverrideBtn.className = "nai-responsive-button";
+            Object.assign(quickAddOverrideBtn.style, {
+                flex: "1",
+                padding: isMobile ? "10px 12px" : "6px 12px",
+                borderRadius: "6px",
+                border: "none",
+                background: colors.buttonBackground,
+                color: "white",
+                cursor: "pointer",
+                fontSize: isMobile ? "14px" : "12px",
+                fontWeight: "bold"
+            });
+
+            const quickAddAppendBtn = document.createElement("button");
+            quickAddAppendBtn.textContent = t('append');
+            quickAddAppendBtn.className = "nai-responsive-button";
+            Object.assign(quickAddAppendBtn.style, {
+                flex: "1",
+                padding: isMobile ? "10px 12px" : "6px 12px",
+                borderRadius: "6px",
+                border: "none",
+                background: "#10b981",
+                color: "white",
+                cursor: "pointer",
+                fontSize: isMobile ? "14px" : "12px",
+                fontWeight: "bold"
+            });
+
+            quickAddSelectContainer.appendChild(quickAddSelect);
+            quickAddButtonsContainer.appendChild(quickAddOverrideBtn);
+            quickAddButtonsContainer.appendChild(quickAddAppendBtn);
+
+            quickAddSection.appendChild(quickAddSelectContainer);
+            quickAddSection.appendChild(quickAddButtonsContainer);
+            quickAddSectionContainer.appendChild(quickAddSection);
+            characterTab.appendChild(quickAddSectionContainer);
+
             tabContent.appendChild(characterTab);
+
             const utilityTab = document.createElement("div");
             utilityTab.id = "tab-utility";
             utilityTab.className = "tab-content";
             utilityTab.style.display = "none";
-            const utilityBtnRow = document.createElement("div");
-            utilityBtnRow.style.display = "flex"; utilityBtnRow.style.gap = "6px"; utilityBtnRow.style.marginBottom = "8px";
-            if (isMobile) utilityBtnRow.style.flexDirection = "column";
+            if (isMobile) {
+                utilityTab.style.width = "100%";
+                utilityTab.style.overflow = "visible";
+            }
 
-            const danbooruBtn = document.createElement("button");
+            const utilityBtnRow1 = document.createElement("div");
+            utilityBtnRow1.className = "utility-button-row";
+            utilityBtnRow1.style.display = "flex";
+            utilityBtnRow1.style.gap = "6px";
+            utilityBtnRow1.style.marginBottom = "8px";
+            if (isMobile) {
+                utilityBtnRow1.style.flexDirection = "column";
+                utilityBtnRow1.style.width = "100%";
+                utilityBtnRow1.style.overflow = "visible";
+            }
+
+            danbooruBtn = document.createElement("button");
             danbooruBtn.textContent = t('danbooru');
             danbooruBtn.className = "nai-responsive-button";
             Object.assign(danbooruBtn.style, {
-                flex: "1", padding: isMobile ? "12px" : "6px", borderRadius: "6px", border: "none",
-                background: colors.buttonBackground, color: "white", cursor: "pointer", fontSize: isMobile ? "14px" : "12px",
-                minHeight: isMobile ? "44px" : "auto"
+                flex: "1",
+                padding: isMobile ? "12px" : "6px",
+                borderRadius: "6px",
+                border: "none",
+                background: colors.buttonBackground,
+                color: "white",
+                cursor: "pointer",
+                fontSize: isMobile ? "14px" : "12px",
+                minHeight: isMobile ? "44px" : "auto",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                visibility: "visible",
+                opacity: "1"
             });
-danbooruBtn.onclick = () => {
-    const idStr = prompt(t('danbooruPrompt', lastId));
-    if (!idStr) return;
-    if (!/^\d+$/.test(idStr)) {
-        showNotification(t('danbooruInvalidId'), 'error');
-        return;
-    }
-    const id = parseInt(idStr, 10);
-    lastId = idStr; localStorage.setItem(LAST_ID_KEY, idStr);
-    showNotification(t('danbooruFetching', id), 'info');
-    fetch(`https://danbooru.donmai.us/posts/${id}.json`)
-        .then(r => r.json())
-        .then(data => {
-            if (!data) {
-                showNotification(t('danbooruError', "No data"), 'error');
-                return;
-            }
-            const characterTags = data.tag_string_character ? data.tag_string_character.split(' ').map(tag => tag.replace(/_/g, ' ')) : [];
-            const copyrightTags = data.tag_string_copyright ? data.tag_string_copyright.split(' ').map(tag => tag.replace(/_/g, ' ')) : [];
-            const generalTags = data.tag_string_general ? data.tag_string_general.split(' ').map(tag => tag.replace(/_/g, ' ')) : [];
-            let allTags = [...characterTags, ...copyrightTags, ...generalTags];
-            if (blacklistTags.length > 0) {
-                allTags = allTags.filter(t => !blacklistTags.includes(t.toLowerCase()));
-            }
-            const tagsString = allTags.join(', ');
+            danbooruBtn.onclick = () => {
+                const idStr = prompt(t('danbooruPrompt', lastId));
+                if (!idStr) return;
+                if (!/^\d+$/.test(idStr)) {
+                    showNotification(t('danbooruInvalidId'), 'error');
+                    return;
+                }
+                const id = parseInt(idStr, 10);
+                lastId = idStr; localStorage.setItem(LAST_ID_KEY, idStr);
+                showNotification(t('danbooruFetching', id), 'info');
+                fetch(`https://danbooru.donmai.us/posts/${id}.json`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!data) {
+                            showNotification(t('danbooruError', "No data"), 'error');
+                            return;
+                        }
 
-            showNotification(t('danbooruApplying', id), 'info');
-            if (!applyTextToEditor(tagsString, status)) {
-                showNotification(t('danbooruApplyFail'), 'error');
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            showNotification(t('danbooruError', err.message || "Network error"), 'error');
-        });
-};
+                        let allTags = [];
+                        const isCopyrightBlacklisted = blacklistedCategories.includes('DBCOPYRIGHT');
+                        const isCharacterBlacklisted = blacklistedCategories.includes('DBCHARACTER');
+                        if (!isCharacterBlacklisted && data.tag_string_character) {
+                            const characterTags = data.tag_string_character.split(' ').map(tag => tag.replace(/_/g, ' '));
+                            allTags.push(...characterTags);
+                        }
 
-            const backupBtn = document.createElement("button");
+                        if (!isCopyrightBlacklisted && data.tag_string_copyright) {
+                            const copyrightTags = data.tag_string_copyright.split(' ').map(tag => tag.replace(/_/g, ' '));
+                            allTags.push(...copyrightTags);
+                        }
+                        if (data.tag_string_general) {
+                            const generalTags = data.tag_string_general.split(' ').map(tag => tag.replace(/_/g, ' '));
+                            let filteredGeneralTags = generalTags;
+                            if (blacklistTags.length > 0) {
+                                filteredGeneralTags = generalTags.filter(t => !blacklistTags.includes(t.toLowerCase()));
+                            }
+                            allTags.push(...filteredGeneralTags);
+                        }
+
+                        const tagsString = allTags.join(', ');
+
+                        showNotification(t('danbooruApplying', id), 'info');
+                        if (!applyTextToEditor(tagsString, status)) {
+                            showNotification(t('danbooruApplyFail'), 'error');
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        showNotification(t('danbooruError', err.message || "Network error"), 'error');
+                    });
+            };
+
+            e621Btn = document.createElement("button");
+            e621Btn.textContent = t('e621');
+            e621Btn.className = "nai-responsive-button";
+            Object.assign(e621Btn.style, {
+                flex: "1",
+                padding: isMobile ? "12px" : "6px",
+                borderRadius: "6px",
+                border: "none",
+                background: colors.buttonBackground,
+                color: "white",
+                cursor: "pointer",
+                fontSize: isMobile ? "14px" : "12px",
+                minHeight: isMobile ? "44px" : "auto",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                visibility: "visible",
+                opacity: "1"
+            });
+            e621Btn.onclick = () => {
+                const idStr = prompt(t('e621Prompt', lastE621Id));
+                if (!idStr) return;
+                if (!/^\d+$/.test(idStr)) {
+                    showNotification(t('e621InvalidId'), 'error');
+                    return;
+                }
+                const id = parseInt(idStr, 10);
+                lastE621Id = idStr; localStorage.setItem(LAST_E621_ID_KEY, idStr);
+                showNotification(t('e621Fetching', id), 'info');
+                fetch(`https://e621.net/posts/${id}.json`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!data || !data.post) {
+                            showNotification(t('e621Error', "No data"), 'error');
+                            return;
+                        }
+                        const post = data.post;
+                        const tags = post.tags || {};
+
+                        let allTags = [];
+                        const isCopyrightBlacklisted = blacklistedCategories.includes('E621COPYRIGHT');
+                        const isCharacterBlacklisted = blacklistedCategories.includes('E621CHARACTER');
+                        const isSpeciesBlacklisted = blacklistedCategories.includes('E621SPECIES');
+                        if (!isCharacterBlacklisted && tags.character) {
+                            const characterTags = tags.character.map(tag => tag.replace(/_/g, ' '));
+                            allTags.push(...characterTags);
+                        }
+
+                        if (!isCopyrightBlacklisted && tags.copyright) {
+                            const copyrightTags = tags.copyright.map(tag => tag.replace(/_/g, ' '));
+                            allTags.push(...copyrightTags);
+                        }
+
+                        if (!isSpeciesBlacklisted && tags.species) {
+                            const speciesTags = tags.species.map(tag => tag.replace(/_/g, ' '));
+                            allTags.push(...speciesTags);
+                        }
+                        if (tags.general) {
+                            const generalTags = tags.general.map(tag => tag.replace(/_/g, ' '));
+                            let filteredGeneralTags = generalTags;
+                            if (blacklistTags.length > 0) {
+                                filteredGeneralTags = generalTags.filter(t => !blacklistTags.includes(t.toLowerCase()));
+                            }
+                            allTags.push(...filteredGeneralTags);
+                        }
+
+                        const tagsString = allTags.join(', ');
+
+                        showNotification(t('e621Applying', id), 'info');
+                        if (!applyTextToEditor(tagsString, status)) {
+                            showNotification(t('e621ApplyFail'), 'error');
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        showNotification(t('e621Error', err.message || "Network error"), 'error');
+                    });
+            };
+
+            utilityBtnRow1.appendChild(danbooruBtn);
+            utilityBtnRow1.appendChild(e621Btn);
+            utilityTab.appendChild(utilityBtnRow1);
+            const utilityBtnRow2 = document.createElement("div");
+            utilityBtnRow2.style.display = "flex";
+            utilityBtnRow2.style.gap = "6px";
+            utilityBtnRow2.style.marginBottom = "8px";
+            if (isMobile) utilityBtnRow2.style.flexDirection = "column";
+
+            backupBtn = document.createElement("button");
             backupBtn.textContent = t('fullBackup');
             backupBtn.className = "nai-responsive-button";
             Object.assign(backupBtn.style, {
@@ -2747,7 +5038,7 @@ danbooruBtn.onclick = () => {
                 minHeight: isMobile ? "44px" : "auto"
             });
             backupBtn.onclick = () => {
-                const data = { profiles, blacklistTags, globalVariables, wildcards, wildcardRemaining, characterDatabase, version: "3.0.3-notification-fix" };
+                const data = { profiles, blacklistTags, globalVariables, wildcards, wildcardRemaining, characterDatabase, imageSettings, watermarkSettings, watermarkEnabled, watermarkType, watermarkImage, watermarkImageSize, version: "NAIPM3" };
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
@@ -2758,321 +5049,472 @@ danbooruBtn.onclick = () => {
                 showNotification(t('backupSaved'), 'success');
             };
 
-            utilityBtnRow.appendChild(danbooruBtn); utilityBtnRow.appendChild(backupBtn);
-            utilityTab.appendChild(utilityBtnRow);
-            const restoreBtn = document.createElement("button");
+            restoreBtn = document.createElement("button");
             restoreBtn.textContent = t('fullRestore');
             restoreBtn.className = "nai-responsive-button";
             Object.assign(restoreBtn.style, {
-                width: "100%", padding: isMobile ? "12px" : "6px", borderRadius: "6px", border: "none",
-                background: colors.buttonBackground, color: "white", cursor: "pointer", fontSize: isMobile ? "14px" : "12px", marginBottom: "8px",
+                flex: "1", padding: isMobile ? "12px" : "6px", borderRadius: "6px", border: "none",
+                background: colors.buttonBackground, color: "white", cursor: "pointer", fontSize: isMobile ? "14px" : "12px",
                 minHeight: isMobile ? "44px" : "auto"
             });
-restoreBtn.onclick = () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json";
-    input.onchange = () => {
-        const file = input.files[0];
-        if (!file) return;
+            restoreBtn.onclick = () => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = ".json";
+                input.onchange = () => {
+                    const file = input.files[0];
+                    if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = () => {
-            try {
-                const rawData = reader.result;
-                let data;
-                try {
-                    data = JSON.parse(rawData);
-                } catch (e) {
-                    showNotification(t('restoreInvalid'), 'error');
-                    return;
-                }
-                let importedProfiles = [];
-                let importedBlacklist = [];
-                let importedGlobalVars = {};
-                let importedWildcards = {};
-                let importedWildcardRemaining = {};
-                let importedCharDB = {};
-                if (Array.isArray(data)) {
-                    importedProfiles = data
-                        .filter(p => p && p.name)
-                        .map(p => ({
-                            name: p.name,
-                            positive: p.content || "",
-                            negative: "",
-                            characters: []
-                        }));
-                    showNotification(t('restoreLegacy'), 'info');
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        try {
+                            const rawData = reader.result;
+                            let data;
+                            try {
+                                data = JSON.parse(rawData);
+                            } catch (e) {
+                                showNotification(t('restoreInvalid'), 'error');
+                                return;
+                            }
+                            let importedProfiles = [];
+                            let importedBlacklist = [];
+                            let importedGlobalVars = {};
+                            let importedWildcards = {};
+                            let importedWildcardRemaining = {};
+                            let importedCharDB = {};
+                            let importedImageSettings = {};
+                            let importedWatermarkSettings = {};
+                            let importedWatermarkEnabled = false;
+                            let importedWatermarkType = "text";
+                            let importedWatermarkImage = null;
+                            let importedWatermarkImageSize = 100;
 
-                } else if (data.version && data.version.startsWith("2.")) {
-                    if (Array.isArray(data.profiles)) {
-                        importedProfiles = data.profiles.map(p => ({
-                            name: p.name,
-                            positive: p.content || p.positive || "",
-                            negative: p.negative || "",
-                            characters: Array.isArray(p.characters) ? p.characters : []
-                        }));
-                    }
-                    if (Array.isArray(data.blacklist)) {
-                        importedBlacklist = data.blacklist.map(t => t.trim()).filter(t => t);
-                    }
-                    if (typeof data.globalVariables === "object" && data.globalVariables !== null) {
-                        importedGlobalVars = { ...data.globalVariables };
-                    }
-                    if (typeof data.wildcards === "object" && data.wildcards !== null) {
-                        importedWildcards = { ...data.wildcards };
-                    }
-                    if (data.lastProfile) {
-                        setLastProfile(data.lastProfile);
-                    }
-                    showNotification(t('restoreSuccess'), 'success');
+                            if (Array.isArray(data)) {
+                                importedProfiles = data
+                                    .filter(p => p && p.name)
+                                    .map(p => ({
+                                        name: p.name,
+                                        positive: p.content || "",
+                                        negative: "",
+                                        characters: [],
+                                        steps: p.steps || 28,
+                                        guidance: p.guidance || 5.0
+                                    }));
+                                showNotification(t('restoreLegacy'), 'info');
 
-                } else if (data.profiles && Array.isArray(data.profiles)) {
-                    importedProfiles = data.profiles;
-                    if (Array.isArray(data.blacklistTags)) {
-                        importedBlacklist = data.blacklistTags;
-                    }
-                    if (typeof data.globalVariables === "object") {
-                        importedGlobalVars = data.globalVariables;
-                    }
-                    if (typeof data.wildcards === "object") {
-                        importedWildcards = data.wildcards;
-                    }
-                    if (typeof data.wildcardRemaining === "object") {
-                        importedWildcardRemaining = data.wildcardRemaining;
-                    }
-                    if (typeof data.characterDatabase === "object") {
-                        importedCharDB = data.characterDatabase;
-                    }
-                    if (typeof data.enableNotifications === "boolean") {
-                        enableNotifications = data.enableNotifications;
-                        localStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(enableNotifications));
-                    }
-                    showNotification(t('restoreSuccess'), 'success');
-                } else {
-                    showNotification(t('restoreInvalid'), 'error');
-                    return;
-                }
-                importedProfiles = importedProfiles
-                    .filter(p => p && p.name)
-                    .map(p => ({
-                        name: p.name,
-                        positive: p.positive || p.content || "",
-                        negative: p.negative || "",
-                        characters: Array.isArray(p.characters) ? p.characters : []
-                    }));
-                profiles = importedProfiles;
-                blacklistTags = importedBlacklist;
-                globalVariables = importedGlobalVars;
-                wildcards = importedWildcards;
-                wildcardRemaining = importedWildcardRemaining;
-                characterDatabase = importedCharDB;
-                saveToStorage();
-                updateSelectOptions(select);
-                if (profiles.length > 0) {
-                    const first = profiles[0];
-                    taPositive.value = first.positive || "";
-                    taNegative.value = first.negative || "";
-                    updateCharListUI();
-                    updateCharDBUI();
-                }
+                            } else if (data.version && data.version.startsWith("2.")) {
+                                if (Array.isArray(data.profiles)) {
+                                    importedProfiles = data.profiles.map(p => ({
+                                        name: p.name,
+                                        positive: p.content || p.positive || "",
+                                        negative: p.negative || "",
+                                        characters: Array.isArray(p.characters) ? p.characters : [],
+                                        steps: p.steps || 28,
+                                        guidance: p.guidance || 5.0
+                                    }));
+                                }
+                                if (Array.isArray(data.blacklist)) {
+                                    importedBlacklist = data.blacklist.map(t => t.trim()).filter(t => t);
+                                }
+                                if (typeof data.globalVariables === "object" && data.globalVariables !== null) {
+                                    importedGlobalVars = { ...data.globalVariables };
+                                }
+                                if (typeof data.wildcards === "object" && data.wildcards !== null) {
+                                    importedWildcards = { ...data.wildcards };
+                                }
+                                if (data.lastProfile) {
+                                    setLastProfile(data.lastProfile);
+                                }
+                                showNotification(t('restoreSuccess'), 'success');
 
-            } catch (e) {
-                console.error("Restore error:", e);
-                showNotification(t('restoreInvalid'), 'error');
-            }
-        };
-        reader.readAsText(file);
-    };
-    input.click();
-};
-            utilityTab.appendChild(restoreBtn);
+                            } else if (data.profiles && Array.isArray(data.profiles)) {
+                                importedProfiles = data.profiles;
+                                if (Array.isArray(data.blacklistTags)) {
+                                    importedBlacklist = data.blacklistTags;
+                                }
+                                if (typeof data.globalVariables === "object") {
+                                    importedGlobalVars = data.globalVariables;
+                                }
+                                if (typeof data.wildcards === "object") {
+                                    importedWildcards = data.wildcards;
+                                }
+                                if (typeof data.wildcardRemaining === "object") {
+                                    importedWildcardRemaining = data.wildcardRemaining;
+                                }
+                                if (typeof data.characterDatabase === "object") {
+                                    importedCharDB = data.characterDatabase;
+                                }
+                                if (typeof data.imageSettings === "object") {
+                                    importedImageSettings = data.imageSettings;
+                                }
+                                if (typeof data.watermarkSettings === "object") {
+                                    importedWatermarkSettings = data.watermarkSettings;
+                                }
+                                if (typeof data.watermarkEnabled === "boolean") {
+                                    importedWatermarkEnabled = data.watermarkEnabled;
+                                }
+                                if (typeof data.watermarkType === "string") {
+                                    importedWatermarkType = data.watermarkType;
+                                }
+                                if (typeof data.watermarkImage === "string") {
+                                    importedWatermarkImage = data.watermarkImage;
+                                }
+                                if (typeof data.watermarkImageSize === "number") {
+                                    importedWatermarkImageSize = data.watermarkImageSize;
+                                }
+                                if (typeof data.enableNotifications === "boolean") {
+                                    enableNotifications = data.enableNotifications;
+                                    localStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(enableNotifications));
+                                }
+                                showNotification(t('restoreSuccess'), 'success');
+                            } else {
+                                showNotification(t('restoreInvalid'), 'error');
+                                return;
+                            }
+
+                            importedProfiles = importedProfiles
+                                .filter(p => p && p.name)
+                                .map(p => ({
+                                    name: p.name,
+                                    positive: p.positive || p.content || "",
+                                    negative: p.negative || "",
+                                    characters: Array.isArray(p.characters) ? p.characters : [],
+                                    steps: p.steps || 28,
+                                    guidance: p.guidance || 5.0
+                                }));
+
+                            profiles = importedProfiles;
+                            blacklistTags = importedBlacklist;
+                            globalVariables = importedGlobalVars;
+                            wildcards = importedWildcards;
+                            wildcardRemaining = importedWildcardRemaining;
+                            characterDatabase = importedCharDB;
+
+                            if (Object.keys(importedImageSettings).length > 0) {
+                                imageSettings = importedImageSettings;
+                                saveImageSettings();
+                            }
+
+                            if (Object.keys(importedWatermarkSettings).length > 0) {
+                                watermarkSettings = importedWatermarkSettings;
+                                watermarkEnabled = importedWatermarkEnabled;
+                                watermarkType = importedWatermarkType;
+                                watermarkImage = importedWatermarkImage;
+                                watermarkImageSize = importedWatermarkImageSize;
+                                saveWatermarkSettings();
+                            }
+
+                            saveToStorage();
+                            updateSelectOptions(select);
+
+                            if (profiles.length > 0) {
+                                const first = profiles[0];
+                                taPositive.value = first.positive || "";
+                                taNegative.value = first.negative || "";
+                                if (panelStepsInput) panelStepsInput.value = first.steps || 28;
+                                if (panelGuidanceInput) panelGuidanceInput.value = first.guidance || 5.0;
+                                updateCharListUI();
+                                updateCharDBUI();
+                            }
+
+                        } catch (e) {
+                            console.error("Restore error:", e);
+                            showNotification(t('restoreInvalid'), 'error');
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+                input.click();
+            };
+
+            utilityBtnRow2.appendChild(backupBtn);
+            utilityBtnRow2.appendChild(restoreBtn);
+            utilityTab.appendChild(utilityBtnRow2);
 
             tabContent.appendChild(utilityTab);
+
             const settingsTab = document.createElement("div");
             settingsTab.id = "tab-settings";
             settingsTab.className = "tab-content";
             settingsTab.style.display = "none";
-
             const settingsBtn = document.createElement("button");
             settingsBtn.textContent = t('settingsBlacklist');
             settingsBtn.className = "nai-responsive-button";
             Object.assign(settingsBtn.style, {
                 width: "100%", padding: isMobile ? "12px" : "6px", borderRadius: "6px", border: "none",
                 background: colors.buttonBackground, color: "white", cursor: "pointer", fontSize: isMobile ? "14px" : "12px",
-                minHeight: isMobile ? "44px" : "auto"
+                minHeight: isMobile ? "44px" : "auto", marginBottom: "8px"
             });
-settingsBtn.onclick = () => {
-    if (document.getElementById('nai-settings-modal')) return;
-    const colors = getThemeColors();
-    const modal = document.createElement('div');
-    modal.id = 'nai-settings-modal';
-    Object.assign(modal.style, {
-        position: 'fixed', top: '50%', left: '50%',
-        transform: 'translate(-50%, -50%)', width: isMobile ? '90%' : '500px', maxWidth: '90vw',
-        background: colors.background, color: colors.color,
-        border: `1px solid ${colors.borderColor}`, borderRadius: '12px',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.2)', zIndex: '20000',
-        padding: '20px', fontFamily: 'sans-serif', boxSizing: 'border-box',
-        maxHeight: isMobile ? '80vh' : 'none',
-        overflowY: isMobile ? 'auto' : 'none'
-    });
+            settingsBtn.onclick = () => {
+                if (document.getElementById('nai-settings-modal')) return;
+                const colors = getThemeColors();
+                const modal = document.createElement('div');
+                modal.id = 'nai-settings-modal';
+                Object.assign(modal.style, {
+                    position: 'fixed', top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)', width: isMobile ? '90%' : '500px', maxWidth: '90vw',
+                    background: colors.background, color: colors.color,
+                    border: `1px solid ${colors.borderColor}`, borderRadius: '12px',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.2)', zIndex: '20000',
+                    padding: '0', fontFamily: 'sans-serif', boxSizing: 'border-box',
+                    maxHeight: '80vh',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                });
 
-    const checkboxStyle = document.createElement('style');
-    checkboxStyle.textContent = `
-        .custom-checkbox {
-            position: relative;
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-
-        .custom-checkbox input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .checkmark {
-            position: absolute;
-            top: 0;
-            left: 0;
-            height: 20px;
-            width: 20px;
-            background-color: ${colors.inputBackground};
-            border: 1px solid ${colors.borderColor};
-            border-radius: 4px;
-        }
-
-        .custom-checkbox:hover input ~ .checkmark {
-            background-color: ${colors.buttonHover};
-        }
-
-        .custom-checkbox input:checked ~ .checkmark {
-            background-color: ${colors.buttonBackground};
-        }
-
-        .checkmark:after {
-            content: "";
-            position: absolute;
-            display: none;
-        }
-
-        .custom-checkbox input:checked ~ .checkmark:after {
-            display: block;
-        }
-
-        .custom-checkbox .checkmark:after {
-            left: 7px;
-            top: 3px;
-            width: 5px;
-            height: 10px;
-            border: solid white;
-            border-width: 0 2px 2px 0;
-            transform: rotate(45deg);
-        }
-    `;
-    document.head.appendChild(checkboxStyle);
-
-    modal.innerHTML = `
-        <div style="font-weight:bold; font-size:16px; margin-bottom:16px;">${t('settingsBlacklist')}</div>
-        <div style="margin-bottom:16px;">
-            <div style="margin:16px 0; display:flex; align-items:center; gap:8px;">
-                <label for="enable-notifications" style="font-size:14px; cursor: pointer; white-space: nowrap; display: flex; align-items: center;">
-                    <div class="custom-checkbox">
-                        <input type="checkbox" id="enable-notifications">
-                        <span class="checkmark"></span>
-                    </div>
-                    🔔 Enable Notifications
-                </label>
-            </div>
-            <div style="font-weight:bold; margin-bottom:8px;">${t('globalVarsTitle')}</div>
-            <div style="font-size:12px; opacity:0.8; margin-bottom:8px;">${t('globalVarsDesc')}</div>
-            <textarea id="global-vars" rows="4" style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px; resize:vertical;">${Object.entries(globalVariables).map(([k, v]) => `${k}=${v}`).join('\n')}</textarea>
-        </div>
-        <div style="margin-bottom:16px;">
-            <div style="font-weight:bold; margin-bottom:8px;">${t('wildcardsTitle')}</div>
-            <div style="font-size:12px; opacity:0.8; margin-bottom:8px;">${t('wildcardsDesc')}</div>
-            <textarea id="wildcards" rows="4" style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px; resize:vertical;">${Object.entries(wildcards).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(', ') : v}`).join('\n')}</textarea>
-        </div>
-        <div style="margin-bottom:16px;">
-            <div style="font-weight:bold; margin-bottom:8px;">${t('blacklistTitle')}</div>
-            <div style="font-size:12px; opacity:0.8; margin-bottom:8px;">${t('blacklistDesc')}</div>
-            <textarea id="blacklist" rows="3" placeholder="${t('blacklistPlaceholder')}" style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px; resize:vertical;">${blacklistTags.join(', ')}</textarea>
-        </div>
-        <div style="display:flex; gap:8px; justify-content:flex-end;">
-            <button id="cancel-settings" style="padding:6px 12px; background:${colors.deleteBackground}; color:white; border:none; border-radius:6px; cursor:pointer;">${t('cancel')}</button>
-            <button id="save-settings" style="padding:6px 12px; background:${colors.buttonBackground}; color:white; border:none; border-radius:6px; cursor:pointer;">${t('apply')}</button>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    const cancelBtn = modal.querySelector('#cancel-settings');
-    const saveBtn = modal.querySelector('#save-settings');
-    const notificationCheckbox = modal.querySelector('#enable-notifications');
-    notificationCheckbox.checked = enableNotifications;
-
-    cancelBtn.onclick = () => {
-        document.body.removeChild(modal);
-        if (document.head.contains(checkboxStyle)) {
-            document.head.removeChild(checkboxStyle);
-        }
-    };
-
-    saveBtn.onclick = () => {
-        const globalVarsText = modal.querySelector('#global-vars').value;
-        const wildcardsText = modal.querySelector('#wildcards').value;
-        const blacklistText = modal.querySelector('#blacklist').value;
-        const notificationsEnabled = notificationCheckbox.checked;
-        try {
-            const newGlobalVars = {};
-            globalVarsText.split('\n').forEach(line => {
-                const eq = line.indexOf('=');
-                if (eq > 0) {
-                    const key = line.substring(0, eq).trim();
-                    const value = line.substring(eq + 1).trim();
-                    if (key) newGlobalVars[key] = value;
-                }
-            });
-            globalVariables = newGlobalVars;
-            const newWildcards = {};
-            wildcardsText.split('\n').forEach(line => {
-                const eq = line.indexOf('=');
-                if (eq > 0) {
-                    const key = line.substring(0, eq).trim();
-                    const value = line.substring(eq + 1).trim();
-                    if (key) {
-                        newWildcards[key] = value.split(',').map(v => v.trim()).filter(v => v);
+                const checkboxStyle = document.createElement('style');
+                checkboxStyle.textContent = `
+                    .custom-checkbox {
+                        position: relative;
+                        display: inline-block;
+                        width: 20px;
+                        height: 20px;
+                        margin-right: 8px;
+                        vertical-align: middle;
                     }
-                }
-            });
-            wildcards = newWildcards;
-            blacklistTags = blacklistText.split(',').map(t => t.trim()).filter(t => t);
-            saveToStorage();
-            showNotification(t('blacklistSaved', blacklistTags.length), 'success');
-            enableNotifications = notificationsEnabled;
-            localStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(enableNotifications));
-        } catch (e) {
-            console.error(e);
-            showNotification("❌ Error saving settings.", 'error');
-        }
-        document.body.removeChild(modal);
-        if (document.head.contains(checkboxStyle)) {
-            document.head.removeChild(checkboxStyle);
-        }
-    };
 
-    modal.addEventListener('click', e => {
-        if (e.target === modal) {
-            document.body.removeChild(modal);
-            if (document.head.contains(checkboxStyle)) {
-                document.head.removeChild(checkboxStyle);
-            }
-        }
+                    .custom-checkbox input {
+                        opacity: 0;
+                        width: 0;
+                        height: 0;
+                    }
+
+                    .checkmark {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        height: 20px;
+                        width: 20px;
+                        background-color: ${colors.inputBackground};
+                        border: 1px solid ${colors.borderColor};
+                        border-radius: 4px;
+                    }
+
+                    .custom-checkbox:hover input ~ .checkmark {
+                        background-color: ${colors.buttonHover};
+                    }
+
+                    .custom-checkbox input:checked ~ .checkmark {
+                        background-color: ${colors.buttonBackground};
+                    }
+
+                    .checkmark:after {
+                        content: "";
+                        position: absolute;
+                        display: none;
+                    }
+
+                    .custom-checkbox input:checked ~ .checkmark:after {
+                        display: block;
+                    }
+
+                    .custom-checkbox .checkmark:after {
+                        left: 7px;
+                        top: 3px;
+                        width: 5px;
+                        height: 10px;
+                        border: solid white;
+                        border-width: 0 2px 2px 0;
+                        transform: rotate(45deg);
+                    }
+                `;
+                document.head.appendChild(checkboxStyle);
+
+                let languageOptions = '';
+                Object.entries(SUPPORTED_LANGUAGES).forEach(([code, name]) => {
+                    const selected = code === currentLanguage ? 'selected' : '';
+                    languageOptions += `<option value="${code}" ${selected}>${name}</option>`;
+                });
+
+                modal.innerHTML = `
+                    <div style="padding:20px 20px 0 20px;">
+                        <div style="font-weight:bold; font-size:16px; margin-bottom:16px;">${t('settingsBlacklist')}</div>
+                    </div>
+
+                    <div id="settings-content" style="flex:1; overflow-y:auto; padding:0 20px;">
+                        <!-- General Blacklist -->
+                        <div style="margin-bottom:16px;">
+                            <div style="font-weight:bold; margin-bottom:8px;">${t('blacklistTitle')} (General Tags)</div>
+                            <div style="font-size:12px; opacity:0.8; margin-bottom:8px;">${t('blacklistDesc')}</div>
+                            <textarea id="blacklist" rows="3" placeholder="${t('blacklistPlaceholder')}" style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px; resize:vertical;">${blacklistTags.join(', ')}</textarea>
+                        </div>
+
+                        <!-- Category Blacklist -->
+                        <div style="margin-bottom:16px;">
+                            <div style="font-weight:bold; margin-bottom:8px;">Category Blacklist</div>
+                            <div style="font-size:12px; opacity:0.8; margin-bottom:8px;">Enter category codes to blacklist entire categories. Separate with commas.</div>
+                            <div style="margin-bottom:8px; font-size:11px; opacity:0.7;">
+                                Available codes:<br>
+                                • DBCOPYRIGHT - Blacklist all copyright tags from Danbooru<br>
+                                • DBCHARACTER - Blacklist all character tags from Danbooru<br>
+                                • E621COPYRIGHT - Blacklist all copyright tags from E621<br>
+                                • E621CHARACTER - Blacklist all character tags from E621<br>
+                                • E621SPECIES - Blacklist all species tags from E621
+                            </div>
+                            <textarea id="blacklisted-categories" rows="3" placeholder="DBCOPYRIGHT, E621SPECIES" style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px; resize:vertical;">${blacklistedCategories.join(', ')}</textarea>
+                        </div>
+
+                        <!-- Other settings content -->
+                        <div style="margin-bottom:16px;">
+                            <div style="font-weight:bold; margin-bottom:8px;">${t('globalVarsTitle')}</div>
+                            <div style="font-size:12px; opacity:0.8; margin-bottom:8px;">${t('globalVarsDesc')}</div>
+                            <textarea id="global-vars" rows="4" style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px; resize:vertical;">${Object.entries(globalVariables).map(([k, v]) => `${k}=${v}`).join('\n')}</textarea>
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <div style="font-weight:bold; margin-bottom:8px;">${t('wildcardsTitle')}</div>
+                            <div style="font-size:12px; opacity:0.8; margin-bottom:8px;">${t('wildcardsDesc')}</div>
+                            <textarea id="wildcards" rows="4" style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px; resize:vertical;">${Object.entries(wildcards).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(', ') : v}`).join('\n')}</textarea>
+                        </div>
+
+                        <!-- Moved elements to top -->
+                        <div style="margin-bottom:16px;">
+                            <div style="margin:16px 0; display:flex; align-items:center; gap:8px;">
+                                <label for="enable-notifications" style="font-size:14px; cursor: pointer; white-space: nowrap; display: flex; align-items: center;">
+                                    <div class="custom-checkbox">
+                                        <input type="checkbox" id="enable-notifications">
+                                        <span class="checkmark"></span>
+                                    </div>
+                                    🔔 Notifications / 通知
+                                </label>
+                            </div>
+
+                            <div style="margin:16px 0; display:flex; align-items:center; gap:8px;">
+                                <label for="enable-free-variables" style="font-size:14px; cursor: pointer; white-space: nowrap; display: flex; align-items: center;">
+                                    <div class="custom-checkbox">
+                                        <input type="checkbox" id="enable-free-variables">
+                                        <span class="checkmark"></span>
+                                    </div>
+                                    ${t('promptForUndefVars')}
+                                </label>
+                            </div>
+
+                            <div style="margin:16px 0;">
+                                <div style="font-weight:bold; margin-bottom:8px;">${t('languageSettings')}</div>
+                                <div style="font-size:12px; opacity:0.8; margin-bottom:8px;">${t('languageDesc')}</div>
+                                <select id="language-select" style="width:100%; padding:8px; border-radius:6px; border:1px solid ${colors.borderColor}; background:${colors.inputBackground}; color:${colors.inputColor}; font-size:13px;">
+                                    ${languageOptions}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="padding:16px 20px 20px 20px; border-top: 1px solid ${colors.borderColor}; display:flex; gap:8px; justify-content:flex-end;">
+                        <button id="cancel-settings" style="padding:8px 16px; background:${colors.deleteBackground}; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">${t('cancel')}</button>
+                        <button id="save-settings" style="padding:8px 16px; background:${colors.buttonBackground}; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">${t('apply')}</button>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                const cancelBtn = modal.querySelector('#cancel-settings');
+                const saveBtn = modal.querySelector('#save-settings');
+                const notificationCheckbox = modal.querySelector('#enable-notifications');
+                const languageSelect = modal.querySelector('#language-select');
+                const freeVarsCheckbox = modal.querySelector('#enable-free-variables');
+
+                notificationCheckbox.checked = enableNotifications;
+                freeVarsCheckbox.checked = freeVariablesEnabled;
+
+                cancelBtn.onclick = () => {
+                    document.body.removeChild(modal);
+                    if (document.head.contains(checkboxStyle)) {
+                        document.head.removeChild(checkboxStyle);
+                    }
+                };
+
+                saveBtn.onclick = () => {
+                    const blacklistedCategoriesText = modal.querySelector('#blacklisted-categories').value;
+                    const globalVarsText = modal.querySelector('#global-vars').value;
+                    const wildcardsText = modal.querySelector('#wildcards').value;
+                    const blacklistText = modal.querySelector('#blacklist').value;
+                    const notificationsEnabled = notificationCheckbox.checked;
+                    const freeVarsEnabledSetting = freeVarsCheckbox.checked;
+                    const selectedLanguage = languageSelect.value;
+
+                    if (selectedLanguage !== currentLanguage) {
+                        changeLanguage(selectedLanguage);
+                        return;
+                    }
+
+                    try {
+                        const newGlobalVars = {};
+                        globalVarsText.split('\n').forEach(line => {
+                            const eq = line.indexOf('=');
+                            if (eq > 0) {
+                                const key = line.substring(0, eq).trim();
+                                const value = line.substring(eq + 1).trim();
+                                if (key) newGlobalVars[key] = value;
+                            }
+                        });
+                        globalVariables = newGlobalVars;
+
+                        const newWildcards = {};
+                        wildcardsText.split('\n').forEach(line => {
+                            const eq = line.indexOf('=');
+                            if (eq > 0) {
+                                const key = line.substring(0, eq).trim();
+                                const value = line.substring(eq + 1).trim();
+                                if (key) {
+                                    newWildcards[key] = value.split(',').map(v => v.trim()).filter(v => v);
+                                }
+                            }
+                        });
+                        wildcards = newWildcards;
+
+                        blacklistTags = blacklistText.split(',').map(t => t.trim()).filter(t => t);
+                        blacklistedCategories = blacklistedCategoriesText.split(',').map(t => t.trim()).filter(t => t);
+
+                        saveToStorage();
+                        showNotification(t('blacklistSaved', blacklistTags.length), 'success');
+
+                        enableNotifications = notificationsEnabled;
+                        localStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(enableNotifications));
+
+                        freeVariablesEnabled = freeVarsEnabledSetting;
+                        localStorage.setItem(FREE_VARIABLES_KEY, JSON.stringify(freeVariablesEnabled));
+                    } catch (e) {
+                        console.error(e);
+                        showNotification(t('errorSavingSettings'), 'error');
+                    }
+                    document.body.removeChild(modal);
+                    if (document.head.contains(checkboxStyle)) {
+                        document.head.removeChild(checkboxStyle);
+                    }
+                };
+
+                modal.addEventListener('click', e => {
+                    if (e.target === modal) {
+                        document.body.removeChild(modal);
+                        if (document.head.contains(checkboxStyle)) {
+                            document.head.removeChild(checkboxStyle);
+                        }
+                    }
+                });
+            };
+	settingsTab.appendChild(settingsBtn);
+if (!isMobile) {
+    const shortcutsBtn = document.createElement("button");
+    shortcutsBtn.textContent = t('keyboardShortcuts');
+    shortcutsBtn.className = "nai-responsive-button";
+    Object.assign(shortcutsBtn.style, {
+        width: "100%", padding: isMobile ? "12px" : "6px", borderRadius: "6px", border: "none",
+        background: colors.buttonBackground, color: "white", cursor: "pointer", fontSize: isMobile ? "14px" : "12px",
+        minHeight: isMobile ? "44px" : "auto"
     });
-};
-            settingsTab.appendChild(settingsBtn);
+    shortcutsBtn.onclick = () => openKeyboardShortcutsModal();
+    settingsTab.appendChild(shortcutsBtn);
+}
+const watermarkBtn = document.createElement("button");
+watermarkBtn.textContent = t('watermarkSettings');
+watermarkBtn.className = "nai-responsive-button";
+Object.assign(watermarkBtn.style, {
+    width: "100%", padding: isMobile ? "12px" : "6px", borderRadius: "6px", border: "none", marginTop: "8px",
+    background: colors.buttonBackground, color: "white", cursor: "pointer", fontSize: isMobile ? "14px" : "12px",
+    minHeight: isMobile ? "44px" : "auto"
+});
+watermarkBtn.onclick = () => openWatermarkSettingsModal();
+settingsTab.appendChild(watermarkBtn);
 
             tabContent.appendChild(settingsTab);
 
@@ -3084,6 +5526,7 @@ settingsBtn.onclick = () => {
             panelContent.appendChild(status);
 
             panel.appendChild(panelContent);
+
             function createIconButton(icon, title, onClick) {
                 const btn = document.createElement("button");
                 btn.innerHTML = icon;
@@ -3105,6 +5548,7 @@ settingsBtn.onclick = () => {
                 btn.onclick = onClick;
                 return btn;
             }
+
             minimizeBtn.onclick = () => {
                 const content = document.getElementById("panel-content");
                 if (content.style.display === "none") {
@@ -3117,6 +5561,7 @@ settingsBtn.onclick = () => {
                     panel.style.height = "40px";
                 }
             };
+
             select.addEventListener("contextmenu", (e) => {
                 e.preventDefault();
                 const existingMenu = document.getElementById("profile-context-menu");
@@ -3138,7 +5583,7 @@ settingsBtn.onclick = () => {
                     boxShadow: "0 2px 10px rgba(0,0,0,0.2)"
                 });
                 const options = [
-                    { text: "💾 Save", action: () => {
+                    { text: t('saveProfile'), action: () => {
                         const name = select.value;
                         if (!name) {
                             showNotification(t('pickProfileFirst'), 'error');
@@ -3148,10 +5593,13 @@ settingsBtn.onclick = () => {
                         if (!profile) return;
                         profile.positive = taPositive.value.trim();
                         profile.negative = taNegative.value.trim();
+                        if (panelStepsInput) profile.steps = parseInt(panelStepsInput.value) || 28;
+                        if (panelGuidanceInput) profile.guidance = parseFloat(panelGuidanceInput.value) || 5.0;
+
                         saveToStorage();
                         showNotification(t('savedProfile', name), 'success');
                     } },
-                    { text: "✏️ Rename", action: () => {
+                    { text: t('renameProfile'), action: () => {
                         const name = select.value;
                         if (!name) {
                             showNotification(t('pickProfileFirst'), 'error');
@@ -3172,7 +5620,7 @@ settingsBtn.onclick = () => {
                             showNotification(t('renamed', name, newName), 'success');
                         }
                     } },
-                    { text: "🗑️ Delete", action: () => {
+                    { text: t('deleteProfile'), action: () => {
                         const name = select.value;
                         if (!name) {
                             showNotification(t('pickProfileFirst'), 'error');
@@ -3195,7 +5643,7 @@ settingsBtn.onclick = () => {
                             }
                         }
                     } },
-                    { text: "🔁 Swap Position", action: () => {
+                    { text: t('swapPosition'), action: () => {
                         const name = select.value;
                         if (!name) {
                             showNotification(t('pickProfileFirst'), 'error');
@@ -3249,6 +5697,7 @@ settingsBtn.onclick = () => {
                     document.removeEventListener("click", closeContextMenu);
                 });
             });
+
             searchInput.addEventListener('input', () => {
                 const searchTerm = searchInput.value.trim().toLowerCase();
                 if (!searchTerm) {
@@ -3271,16 +5720,49 @@ settingsBtn.onclick = () => {
                 if (!profile) return;
                 taPositive.value = profile.positive || "";
                 taNegative.value = profile.negative || "";
+                const profileSteps = profile.steps !== undefined ? profile.steps : 28;
+                const profileGuidance = profile.guidance !== undefined ? profile.guidance : 5.0;
+                let currentSteps = 28;
+                let currentGuidance = 5.0;
+                const allContainers = document.querySelectorAll('.image__ASDetail-sc-5d63727e-15');
+                allContainers.forEach(container => {
+                    if (container.textContent.includes('Steps')) {
+                        const input = container.querySelector('input[type="number"][step="1"]');
+                        if (input) currentSteps = parseInt(input.value) || 28;
+                    } else if (container.textContent.includes('Guidance')) {
+                        const input = container.querySelector('input[type="number"][step="0.1"]');
+                        if (input) currentGuidance = parseFloat(input.value) || 5.0;
+                    }
+                });
+                if (panelStepsInput) {
+                    panelStepsInput.value = profileSteps;
+                    panelStepsInput.setAttribute('value', profileSteps);
+                }
+                if (panelGuidanceInput) {
+                    panelGuidanceInput.value = profileGuidance;
+                    panelGuidanceInput.setAttribute('value', profileGuidance);
+                }
+                if (currentSteps !== profileSteps || currentGuidance !== profileGuidance) {
+                    setTimeout(() => {
+                        applyImageSettings();
+                        showNotification(`✅ Auto-applied settings for profile: ${name}`, 'success');
+                    }, 200);
+                }
+
                 updateCharListUI();
                 updateCharDBUI();
                 setLastProfile(name);
             });
+
             updateSelectOptions(select, lastProfileName);
             if (lastProfileName) {
                 const profile = profiles.find(p => p.name === lastProfileName);
                 if (profile) {
                     taPositive.value = profile.positive || "";
                     taNegative.value = profile.negative || "";
+                    if (panelStepsInput) panelStepsInput.value = profile.steps !== undefined ? profile.steps : 28;
+                    if (panelGuidanceInput) panelGuidanceInput.value = profile.guidance !== undefined ? profile.guidance : 5.0;
+
                     updateCharListUI();
                     updateCharDBUI();
                 }
@@ -3288,7 +5770,79 @@ settingsBtn.onclick = () => {
             panel.style.display = "block";
             updatePanelPosition();
             showNotification(t('ready'), 'success');
+
+            function updateQuickAddSelect(searchTerm = '') {
+                const dbKeys = Object.keys(characterDatabase);
+                const filteredKeys = dbKeys.filter(key =>
+                    key.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                filteredKeys.sort((a, b) => a.localeCompare(b));
+
+                quickAddSelect.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select a character...';
+                defaultOption.disabled = true;
+                quickAddSelect.appendChild(defaultOption);
+
+                if (filteredKeys.length === 0) {
+                    const noOption = document.createElement('option');
+                    noOption.value = '';
+                    noOption.textContent = 'No characters found';
+                    noOption.disabled = true;
+                    quickAddSelect.appendChild(noOption);
+                    return;
+                }
+
+                filteredKeys.forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    quickAddSelect.appendChild(option);
+                });
+            }
+
+            quickAddOverrideBtn.onclick = () => {
+                const selectedCharName = quickAddSelect.value;
+                if (!selectedCharName) {
+                    showNotification('Please select a character first', 'error');
+                    return;
+                }
+
+                const charPrompt = characterDatabase[selectedCharName];
+                if (!charPrompt) {
+                    showNotification('Character prompt not found', 'error');
+                    return;
+                }
+
+                applyTextToEditor(charPrompt, status);
+            };
+
+            quickAddAppendBtn.onclick = () => {
+                const selectedCharName = quickAddSelect.value;
+                if (!selectedCharName) {
+                    showNotification('Please select a character first', 'error');
+                    return;
+                }
+
+                const charPrompt = characterDatabase[selectedCharName];
+                if (!charPrompt) {
+                    showNotification('Character prompt not found', 'error');
+                    return;
+                }
+
+                applyTextToEditorAppend(charPrompt, status);
+            };
+
+            const originalUpdateCharDBUI = updateCharDBUI;
+            updateCharDBUI = function(searchTerm) {
+                originalUpdateCharDBUI(searchTerm);
+                updateQuickAddSelect(searchTerm);
+            };
+
+            updateQuickAddSelect();
         }
+
         function updatePanelPosition() {
             if (!panel || !toggle) return;
             const toggleRect = toggle.getBoundingClientRect();
@@ -3308,6 +5862,7 @@ settingsBtn.onclick = () => {
             panel.style.left = `${panelLeft}px`;
             panel.style.top = `${panelTop}px`;
         }
+
         function updateCharListUI() {
             const name = select.value;
             const profile = profiles.find(p => p.name === name);
@@ -3369,7 +5924,7 @@ settingsBtn.onclick = () => {
                         if (profile.characters.length > 0) {
                             insertCharacterPrompts(profile.characters, charWarning);
                         }
-                        showNotification(`✅ Order updated`, 'success');
+                        showNotification(t('orderUpdated'), 'success');
                     }
                 };
             });
@@ -3383,7 +5938,7 @@ settingsBtn.onclick = () => {
                         if (profile.characters.length > 0) {
                             insertCharacterPrompts(profile.characters, charWarning);
                         }
-                        showNotification(`✅ Order updated`, 'success');
+                        showNotification(t('orderUpdated'), 'success');
                     }
                 };
             });
@@ -3400,11 +5955,12 @@ settingsBtn.onclick = () => {
                         } else {
                             applyProcessedCharacterPrompts([], charWarning);
                         }
-                        showNotification(`🗑️ "${name}" deleted`, 'info');
+                        showNotification(t('charDeletedFromProfile', name), 'info');
                     }
                 };
             });
         }
+
         function openCharacterModal(profile, index = null) {
             if (document.getElementById('nai-character-modal')) return;
             const isNew = index === null;
@@ -3446,11 +6002,11 @@ settingsBtn.onclick = () => {
                 const name = nameInput.value.trim();
                 const prompt = promptInput.value.trim();
                 if (!name) {
-                    showNotification(t('charNamePlaceholder'), 'error');
+                    showNotification(t('nameRequired'), 'error');
                     return;
                 }
                 if (!prompt) {
-                    showNotification(t('charPromptPlaceholder'), 'error');
+                    showNotification(t('promptRequired'), 'error');
                     return;
                 }
                 if (isNew) {
@@ -3464,57 +6020,228 @@ settingsBtn.onclick = () => {
                     insertCharacterPrompts(profile.characters, charWarning);
                 }
                 document.body.removeChild(modal);
-                showNotification(`✅ Character "${name}" ${isNew ? 'added' : 'updated'}`, 'success');
+                showNotification(t('charUpdated', name), 'success');
             };
             cancelBtn.onclick = () => document.body.removeChild(modal);
             modal.addEventListener('click', e => { if (e.target === modal) document.body.removeChild(modal); });
         }
+
         document.body.appendChild(toggle);
+        let searchVisible = false;
         document.addEventListener('keydown', (e) => {
+            const activeElement = document.activeElement;
+            const isInInput = activeElement && (
+                activeElement.tagName === 'INPUT' ||
+                activeElement.tagName === 'TEXTAREA' ||
+                activeElement.contentEditable === 'true'
+            );
+            if (isInInput && !e.ctrlKey && !e.altKey) return;
             if (e.key === 'Escape' && panel && panel.style.display === 'block') {
+                if (searchDiv) {
+                    searchVisible = (searchDiv.style.display !== 'none');
+                }
                 panel.style.display = 'none';
                 return;
             }
-            if (e.ctrlKey && e.key === 'q') {
-                e.preventDefault();
-                if (panel && panel.style.display === 'none') {
-                    panel.style.display = 'block';
-                    updatePanelPosition();
-                }
-                if (searchDiv.style.display === 'none') {
-                    searchDiv.style.display = 'block';
-                    searchInput.focus();
-                } else {
-                    searchDiv.style.display = 'none';
-                }
-                return;
-            }
-            if (e.ctrlKey && e.key >= '0' && e.key <= '9') {
-                e.preventDefault();
-                const profileIndex = e.key === '0' ? 9 : parseInt(e.key) - 1;
-
-                if (profileIndex < profiles.length) {
-                    if (panel && panel.style.display === 'none') {
-                        panel.style.display = 'block';
-                        updatePanelPosition();
+            let shortcutMatched = false;
+            for (const [action, shortcut] of Object.entries(keyboardShortcuts)) {
+                if (
+                    e.ctrlKey === !!shortcut.ctrl &&
+                    e.altKey === !!shortcut.alt &&
+                    e.shiftKey === !!shortcut.shift &&
+                    e.key.toUpperCase() === shortcut.key.toUpperCase()
+                ) {
+                    shortcutMatched = true;
+                    const hasConflict = checkShortcutConflict(shortcut);
+                    if (hasConflict) {
+                        showNotification(t('shortcutConflictWarning'), 'error');
+                        e.preventDefault();
+                        return;
                     }
-                    select.value = profiles[profileIndex].name;
-                    const event = new Event('change');
-                    select.dispatchEvent(event);
-                    showNotification(`✅ Loaded profile #${profileIndex + 1}: ${profiles[profileIndex].name}`, 'success');
-                } else {
-                    showNotification(`❌ Profile #${profileIndex + 1} does not exist`, 'error');
+                    e.preventDefault();
+
+                    switch (action) {
+                        case 'newProfile':
+                            if (newBtn) newBtn.click();
+                            break;
+                        case 'saveProfile':
+                            if (saveBtn) saveBtn.click();
+                            break;
+                        case 'renameProfile':
+                            if (renameBtn) renameBtn.click();
+                            break;
+                        case 'deleteProfile':
+                            if (deleteBtn) deleteBtn.click();
+                            break;
+                        case 'search':
+                            if (!panel) {
+                                createPanel();
+                            }
+                            if (panel.style.display === 'none') {
+                                panel.style.display = 'block';
+                                updatePanelPosition();
+                                const profileTabBtn = Array.from(tabButtons.children).find(b => b.textContent === t('profileTab'));
+                                if (profileTabBtn) {
+                                    profileTabBtn.click();
+                                }
+                                if (searchDiv) {
+                                    if (searchVisible) {
+                                        searchDiv.style.display = 'block';
+                                        if (searchInput) {
+                                            searchInput.focus();
+                                        }
+                                    } else {
+                                        searchDiv.style.display = 'none';
+                                    }
+                                }
+                            } else {
+                                if (searchDiv) {
+                                    if (searchDiv.style.display === 'none') {
+                                        searchDiv.style.display = 'block';
+                                        searchVisible = true;
+                                        if (searchInput) {
+                                            searchInput.focus();
+                                        }
+                                    } else {
+                                        searchDiv.style.display = 'none';
+                                        searchVisible = false;
+                                    }
+                                }
+                            }
+                            break;
+                        case 'override':
+                            if (overrideBtn) overrideBtn.click();
+                            break;
+                        case 'append':
+                            if (appendBtn) appendBtn.click();
+                            break;
+                        case 'addCharacter':
+                            if (addCharBtn) addCharBtn.click();
+                            break;
+                        case 'addToDB':
+                            if (addCharDBBtn) addCharDBBtn.click();
+                            break;
+                        case 'organize':
+                            if (organizeCharDBBtn) organizeCharDBBtn.click();
+                            break;
+                        case 'characterTab':
+                            if (panel && panel.style.display === 'none') {
+                                panel.style.display = 'block';
+                                updatePanelPosition();
+                            }
+                            if (characterTabBtn) characterTabBtn.click();
+                            break;
+                        case 'danbooru':
+                            if (danbooruBtn) danbooruBtn.click();
+                            break;
+                        case 'e621':
+                            if (e621Btn) e621Btn.click();
+                            break;
+                        case 'fullBackup':
+                            if (backupBtn) backupBtn.click();
+                            break;
+                        case 'fullRestore':
+                            if (restoreBtn) restoreBtn.click();
+                            break;
+                    }
+                    break;
                 }
-                return;
+            }
+            if (!shortcutMatched) {
+                if (e.ctrlKey && e.key >= '0' && e.key <= '9') {
+                    e.preventDefault();
+                    const profileIndex = e.key === '0' ? 9 : parseInt(e.key) - 1;
+
+                    if (profileIndex < profiles.length) {
+                        if (panel && panel.style.display === 'none') {
+                            panel.style.display = 'block';
+                            updatePanelPosition();
+                        }
+                        select.value = profiles[profileIndex].name;
+                        const event = new Event('change');
+                        select.dispatchEvent(event);
+
+                        setTimeout(() => {
+                            const profile = profiles[profileIndex];
+                            if (profile.positive) {
+                                applyTextToEditor(profile.positive, status);
+                            }
+                            if (profile.negative) {
+                                applyTextToNegativeEditor(profile.negative, status);
+                            }
+                            if (profile.characters && profile.characters.length > 0) {
+                                insertCharacterPrompts(profile.characters, charWarning);
+                            }
+                            showNotification(`✅ Applied profile #${profileIndex + 1}: ${profile.name}`, 'success');
+                        }, 500);
+                    } else {
+                        showNotification(`❌ Profile #${profileIndex + 1} does not exist`, 'error');
+                    }
+                    return;
+                }
             }
         });
     }
+
+    function applyImageSettings() {
+        const selectElement = document.querySelector("#nai-profiles-panel select");
+        const name = selectElement ? selectElement.value : null;
+
+        let steps, guidance;
+        if (panelStepsInput && panelGuidanceInput) {
+            steps = parseInt(panelStepsInput.value) || 28;
+            guidance = parseFloat(panelGuidanceInput.value) || 5.0;
+        } else {
+            steps = imageSettings.steps;
+            guidance = imageSettings.guidance;
+        }
+        let stepsInput = null;
+        let guidanceInput = null;
+
+        const allContainers = document.querySelectorAll('.image__ASDetail-sc-5d63727e-15');
+        allContainers.forEach(container => {
+            if (container.textContent.includes('Steps')) {
+                stepsInput = container.querySelector('input[type="number"][step="1"]');
+            } else if (container.textContent.includes('Guidance')) {
+                guidanceInput = container.querySelector('input[type="number"][step="0.1"]');
+            }
+        });
+
+        function simulateUserInteraction(input, value) {
+            if (!input) return;
+            const valueStr = String(value);
+            input.focus();
+            input.select();
+            document.execCommand('insertText', false, '');
+            for (let i = 0; i < valueStr.length; i++) {
+                const char = valueStr[i];
+                document.execCommand('insertText', false, char);
+            }
+            input.blur();
+            setTimeout(() => {
+            }, 100);
+        }
+
+        if (stepsInput) {
+            simulateUserInteraction(stepsInput, steps);
+        } else {
+        }
+
+        if (guidanceInput) {
+            simulateUserInteraction(guidanceInput, guidance);
+        } else {
+            console.error("Could not find Guidance input element");
+        }
+
+        showNotification(t('imageSettingsApplied'), 'success');
+    }
+
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", createPanelOnce);
     } else {
         createPanelOnce();
     }
-        // Auto update functionality - PINDAHKAN KE SINI
+
     function compareVersions(v1, v2) {
         const a = v1.split('.').map(Number);
         const b = v2.split('.').map(Number);
@@ -3534,7 +6261,7 @@ settingsBtn.onclick = () => {
             const match = text.match(/@version\s+([0-9.]+)/);
             if (!match) return;
             const latestVersion = match[1];
-            const currentVersion = "2.5";
+            const currentVersion = "3.1";
             const comparison = compareVersions(latestVersion, currentVersion);
             if (comparison > 0 && !document.getElementById('nai-update-notice')) {
                 const notice = document.createElement('div');
@@ -3542,7 +6269,7 @@ settingsBtn.onclick = () => {
                 Object.assign(notice.style, {
                     position: 'fixed',
                     top: '30px',
-                    right: '30px',
+                    right: "30px",
                     zIndex: '99999',
                     background: '#1e40af',
                     color: 'white',
@@ -3555,8 +6282,8 @@ settingsBtn.onclick = () => {
                     lineHeight: '1.5'
                 });
                 notice.innerHTML = `
-                    <b>🎉 Update Available!</b><br>
-                    Version <strong>v${latestVersion}</strong> is out.<br>
+                    <b>${t('updateNotice')}</b><br>
+                    ${t('updateVersion', latestVersion)}<br>
                     <button id="update-now" style="
                         margin-top: 10px;
                         padding: 8px 14px;
@@ -3566,7 +6293,7 @@ settingsBtn.onclick = () => {
                         border-radius: 8px;
                         font-weight: bold;
                         cursor: pointer;
-                    ">Update Now</button>
+                    ">${t('updateButton')}</button>
                 `;
                 document.body.appendChild(notice);
                 document.getElementById('update-now').onclick = () => {
@@ -3588,6 +6315,7 @@ settingsBtn.onclick = () => {
             }
         }, 1000);
     });
+
     setTimeout(() => {
         const select = document.querySelector("#nai-profiles-panel select");
         if (select && select.value) {
@@ -3595,290 +6323,397 @@ settingsBtn.onclick = () => {
             select.dispatchEvent(event);
         }
     }, 2000);
-function addImageZoomFeature() {
-    function handleImageClick(e) {
-        e.preventDefault();
-        const img = e.target;
-        const imgSrc = img.src;
-        const modal = document.createElement('div');
-        modal.id = 'nai-image-zoom-modal';
-        Object.assign(modal.style, {
-            position: 'fixed',
-            top: '0',
-            left: '0',
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            zIndex: '99999',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            cursor: 'zoom-out',
-            overflow: 'hidden',
-            touchAction: 'none'
-        });
-        const imgContainer = document.createElement('div');
-        Object.assign(imgContainer.style, {
-            position: 'relative',
-            width: '90%',
-            height: '90%',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            overflow: 'hidden'
-        });
-        const modalImg = document.createElement('img');
-        modalImg.src = imgSrc;
-        Object.assign(modalImg.style, {
-            maxWidth: '100%',
-            maxHeight: '100%',
-            objectFit: 'contain',
-            transform: 'scale(1) translate(0px, 0px)',
-            transition: 'transform 0.1s ease-out',
-            cursor: 'grab',
-            userSelect: 'none',
-            WebkitUserDrag: 'none',
-            KhtmlUserDrag: 'none',
-            MozUserDrag: 'none',
-            OUserDrag: 'none'
-        });
-        const closeBtn = document.createElement('button');
-        closeBtn.innerHTML = '✕';
-        Object.assign(closeBtn.style, {
-            position: 'absolute',
-            top: '20px',
-            right: '20px',
-            backgroundColor: 'rgba(255, 255, 255, 0.2)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '50%',
-            width: '40px',
-            height: '40px',
-            fontSize: '20px',
-            cursor: 'pointer',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: '1000'
-        });
-        const zoomInBtn = document.createElement('button');
-        zoomInBtn.innerHTML = '+';
-        Object.assign(zoomInBtn.style, {
-            position: 'absolute',
-            bottom: '20px',
-            right: '80px',
-            backgroundColor: 'rgba(255, 255, 255, 0.2)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '50%',
-            width: '40px',
-            height: '40px',
-            fontSize: '24px',
-            cursor: 'pointer',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: '1000'
-        });
 
-        const zoomOutBtn = document.createElement('button');
-        zoomOutBtn.innerHTML = '-';
-        Object.assign(zoomOutBtn.style, {
-            position: 'absolute',
-            bottom: '20px',
-            right: '20px',
-            backgroundColor: 'rgba(255, 255, 255, 0.2)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '50%',
-            width: '40px',
-            height: '40px',
-            fontSize: '24px',
-            cursor: 'pointer',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: '1000'
-        });
-        const resetBtn = document.createElement('button');
-        resetBtn.innerHTML = '100%';
-        Object.assign(resetBtn.style, {
-            position: 'absolute',
-            bottom: '20px',
-            left: '20px',
-            backgroundColor: 'rgba(255, 255, 255, 0.2)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            padding: '8px 16px',
-            fontSize: '14px',
-            cursor: 'pointer',
-            zIndex: '1000'
-        });
-        const zoomInfo = document.createElement('div');
-        Object.assign(zoomInfo.style, {
-            position: 'absolute',
-            top: '20px',
-            left: '20px',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            color: 'white',
-            padding: '8px 12px',
-            borderRadius: '4px',
-            fontSize: '14px',
-            zIndex: '1000'
-        });
-        zoomInfo.textContent = 'Zoom: 100%';
-        imgContainer.appendChild(modalImg);
-        modal.appendChild(imgContainer);
-        modal.appendChild(closeBtn);
-        modal.appendChild(zoomInBtn);
-        modal.appendChild(zoomOutBtn);
-        modal.appendChild(resetBtn);
-        modal.appendChild(zoomInfo);
-        document.body.appendChild(modal);
-
-        let scale = 1;
-        let translateX = 0;
-        let translateY = 0;
-        let isDragging = false;
-        let startX, startY;
-        let lastX, lastY;
-        let initialDistance = 0;
-        let initialScale = 1;
-
-        modalImg.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 2) {
-                initialDistance = Math.hypot(
-                    e.touches[0].pageX - e.touches[1].pageX,
-                    e.touches[0].pageY - e.touches[1].pageY
-                );
-                initialScale = scale;
-            } else if (e.touches.length === 1 && scale > 1) {
-                isDragging = true;
-                modalImg.style.transition = 'none';
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
-                lastX = translateX;
-                lastY = translateY;
-            }
+    function addImageZoomFeature() {
+        function handleImageClick(e) {
             e.preventDefault();
-        });
+            const img = e.target;
+            const imgSrc = img.src;
+            const modal = document.createElement('div');
+            modal.id = 'nai-image-zoom-modal';
+            Object.assign(modal.style, {
+                position: 'fixed',
+                top: '0',
+                left: '0',
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                zIndex: '99999',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                cursor: 'zoom-out',
+                overflow: 'hidden',
+                touchAction: 'none'
+            });
+            const imgContainer = document.createElement('div');
+            Object.assign(imgContainer.style, {
+                position: 'relative',
+                width: '90%',
+                height: '90%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'hidden'
+            });
+            const modalImg = document.createElement('img');
+            modalImg.src = imgSrc;
+            Object.assign(modalImg.style, {
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain',
+                transform: 'scale(1) translate(0px, 0px)',
+                transition: 'transform 0.1s ease-out',
+                cursor: 'grab',
+                userSelect: 'none',
+                WebkitUserDrag: 'none',
+                KhtmlUserDrag: 'none',
+                MozUserDrag: 'none',
+                OUserDrag: 'none'
+            });
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '✕';
+            Object.assign(closeBtn.style, {
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                fontSize: '20px',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: '1000'
+            });
+            const zoomInBtn = document.createElement('button');
+            zoomInBtn.innerHTML = '+';
+            Object.assign(zoomInBtn.style, {
+                position: 'absolute',
+                bottom: '20px',
+                right: '80px',
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                fontSize: '24px',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: '1000'
+            });
 
-        modalImg.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2) {
-                const currentDistance = Math.hypot(
-                    e.touches[0].pageX - e.touches[1].pageX,
-                    e.touches[0].pageY - e.touches[1].pageY
-                );
+            const zoomOutBtn = document.createElement('button');
+            zoomOutBtn.innerHTML = '-';
+            Object.assign(zoomOutBtn.style, {
+                position: 'absolute',
+                bottom: '20px',
+                right: '20px',
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                fontSize: '24px',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: '1000'
+            });
+            const resetBtn = document.createElement('button');
+            resetBtn.innerHTML = '100%';
+            Object.assign(resetBtn.style, {
+                position: 'absolute',
+                bottom: '20px',
+                left: '20px',
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '8px 16px',
+                fontSize: '14px',
+                cursor: 'pointer',
+                zIndex: '1000'
+            });
+            const zoomInfo = document.createElement('div');
+            Object.assign(zoomInfo.style, {
+                position: 'absolute',
+                top: '20px',
+                left: '20px',
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                color: 'white',
+                padding: '8px 12px',
+                borderRadius: '4px',
+                fontSize: '14px',
+                zIndex: '1000'
+            });
+            zoomInfo.textContent = t('zoomLevel', '100');
+            imgContainer.appendChild(modalImg);
+            modal.appendChild(imgContainer);
+            modal.appendChild(closeBtn);
+            modal.appendChild(zoomInBtn);
+            modal.appendChild(zoomOutBtn);
+            modal.appendChild(resetBtn);
+            modal.appendChild(zoomInfo);
+            document.body.appendChild(modal);
 
-                if (initialDistance > 0) {
-                    scale = Math.min(Math.max(0.5, initialScale * (currentDistance / initialDistance)), 5);
+            let scale = 1;
+            let translateX = 0;
+            let translateY = 0;
+            let isDragging = false;
+            let startX, startY;
+            let lastX, lastY;
+            let initialDistance = 0;
+            let initialScale = 1;
+
+            modalImg.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    initialDistance = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+                    initialScale = scale;
+                } else if (e.touches.length === 1 && scale > 1) {
+                    isDragging = true;
+                    modalImg.style.transition = 'none';
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                    lastX = translateX;
+                    lastY = translateY;
+                }
+                e.preventDefault();
+            });
+
+            modalImg.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2) {
+                    const currentDistance = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+
+                    if (initialDistance > 0) {
+                        scale = Math.min(Math.max(0.5, initialScale * (currentDistance / initialDistance)), 5);
+                        updateTransform();
+                    }
+                } else if (e.touches.length === 1 && isDragging) {
+                    const deltaX = e.touches[0].clientX - startX;
+                    const deltaY = e.touches[0].clientY - startY;
+                    translateX = lastX + deltaX;
+                    translateY = lastY + deltaY;
                     updateTransform();
                 }
-            } else if (e.touches.length === 1 && isDragging) {
-                const deltaX = e.touches[0].clientX - startX;
-                const deltaY = e.touches[0].clientY - startY;
+                e.preventDefault();
+            });
+
+            modalImg.addEventListener('touchend', (e) => {
+                if (e.touches.length < 2) {
+                    isDragging = false;
+                    modalImg.style.transition = 'transform 0.1s ease-out';
+                }
+                e.preventDefault();
+            });
+
+            function updateTransform() {
+                modalImg.style.transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
+                zoomInfo.textContent = t('zoomLevel', Math.round(scale * 100));
+            }
+
+            zoomInBtn.addEventListener('click', (e) => { e.stopPropagation(); scale = Math.min(scale + 0.25, 5); updateTransform(); });
+            zoomOutBtn.addEventListener('click', (e) => { e.stopPropagation(); scale = Math.max(scale - 0.25, 0.5); updateTransform(); });
+            resetBtn.addEventListener('click', (e) => { e.stopPropagation(); scale = 1; translateX = 0; translateY = 0; updateTransform(); });
+
+            const closeModal = () => { document.body.removeChild(modal); };
+            closeBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal || e.target === imgContainer) {
+                    closeModal();
+                }
+            });
+
+            modalImg.addEventListener('mousedown', (e) => {
+                if (scale > 1) {
+                    isDragging = true;
+                    modalImg.style.cursor = 'grabbing';
+                    modalImg.style.transition = 'none';
+                    startX = e.clientX; startY = e.clientY; lastX = translateX; lastY = translateY;
+                    e.preventDefault();
+                }
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
                 translateX = lastX + deltaX;
                 translateY = lastY + deltaY;
                 updateTransform();
-            }
-            e.preventDefault();
-        });
+            });
 
-        modalImg.addEventListener('touchend', (e) => {
-            if (e.touches.length < 2) {
-                isDragging = false;
-                modalImg.style.transition = 'transform 0.1s ease-out';
-            }
-            e.preventDefault();
-        });
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    modalImg.style.cursor = 'grab';
+                    modalImg.style.transition = 'transform 0.1s ease-out';
+                }
+            });
 
-        function updateTransform() {
-            modalImg.style.transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
-            zoomInfo.textContent = `Zoom: ${Math.round(scale * 100)}%`;
+            modal.addEventListener('wheel', (e) => { e.preventDefault(); const delta = e.deltaY > 0 ? -0.1 : 0.1; scale = Math.min(Math.max(0.5, scale + delta), 5); updateTransform(); });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
         }
-        zoomInBtn.addEventListener('click', (e) => { e.stopPropagation(); scale = Math.min(scale + 0.25, 5); updateTransform(); });
-        zoomOutBtn.addEventListener('click', (e) => { e.stopPropagation(); scale = Math.max(scale - 0.25, 0.5); updateTransform(); });
-        resetBtn.addEventListener('click', (e) => { e.stopPropagation(); scale = 1; translateX = 0; translateY = 0; updateTransform(); });
-        const closeModal = () => { document.body.removeChild(modal); };
-        closeBtn.addEventListener('click', closeModal);
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal || e.target === imgContainer) {
-                closeModal();
-            }
-        });
-        modalImg.addEventListener('mousedown', (e) => {
-            if (scale > 1) {
-                isDragging = true;
-                modalImg.style.cursor = 'grabbing';
-                modalImg.style.transition = 'none';
-                startX = e.clientX; startY = e.clientY; lastX = translateX; lastY = translateY;
-                e.preventDefault();
-            }
-        });
 
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            e.preventDefault();
-            const deltaX = e.clientX - startX;
-            const deltaY = e.clientY - startY;
-            translateX = lastX + deltaX;
-            translateY = lastY + deltaY;
-            updateTransform();
-        });
-
-        document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                modalImg.style.cursor = 'grab';
-                modalImg.style.transition = 'transform 0.1s ease-out';
+        function attachClickListener(img) {
+            if (img.dataset.naiZoomAttached) {
+                return;
             }
-        });
-        modal.addEventListener('wheel', (e) => { e.preventDefault(); const delta = e.deltaY > 0 ? -0.1 : 0.1; scale = Math.min(Math.max(0.5, scale + delta), 5); updateTransform(); });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
-    }
-    function attachClickListener(img) {
-        if (img.dataset.naiZoomAttached) {
-            return;
+            img.addEventListener('click', handleImageClick);
+            img.style.cursor = 'zoom-in';
+            img.dataset.naiZoomAttached = 'true';
         }
-        img.addEventListener('click', handleImageClick);
-        img.style.cursor = 'zoom-in';
-        img.dataset.naiZoomAttached = 'true';
-    }
-    document.querySelectorAll('.image-grid-image').forEach(attachClickListener);
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.addedNodes) {
-                for (let node of mutation.addedNodes) {
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                        if (node.classList && node.classList.contains('image-grid-image')) {
-                            attachClickListener(node);
-                        }
-                        if (node.querySelectorAll) {
-                            node.querySelectorAll('.image-grid-image').forEach(attachClickListener);
+
+        document.querySelectorAll('.image-grid-image').forEach(attachClickListener);
+
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.addedNodes) {
+                    for (let node of mutation.addedNodes) {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            if (node.classList && node.classList.contains('image-grid-image')) {
+                                attachClickListener(node);
+                            }
+                            if (node.querySelectorAll) {
+                                node.querySelectorAll('.image-grid-image').forEach(attachClickListener);
+                            }
                         }
                     }
                 }
-            }
-            if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
-                const targetNode = mutation.target;
-                if (targetNode.classList && targetNode.classList.contains('image-grid-image')) {
-                    attachClickListener(targetNode);
+                if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+                    const targetNode = mutation.target;
+                    if (targetNode.classList && targetNode.classList.contains('image-grid-image')) {
+                        attachClickListener(targetNode);
+                    }
                 }
-            }
+            });
         });
-    });
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['src']
-    });
-}
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", addImageZoomFeature);
-} else {
-    addImageZoomFeature();
-}
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['src']
+        });
+    }
+
+    function addMetadataRemoverButtonToImage(imgElement) {
+        if (!imgElement || imgElement.dataset.scrubberButtonAdded) return;
+        let parentContainer = imgElement.parentElement;
+        while (parentContainer && !parentContainer.querySelector('.display-grid-bottom')) {
+            parentContainer = parentContainer.parentElement;
+        }
+
+        if (!parentContainer) return;
+        if (parentContainer.querySelector('.metadata-remover-btn')) return;
+        if (getComputedStyle(parentContainer).position === 'static') {
+            parentContainer.style.position = 'relative';
+        }
+        const scrubberBtn = document.createElement('button');
+        scrubberBtn.className = 'metadata-remover-btn';
+        scrubberBtn.innerHTML = watermarkEnabled ? '🔒 Remove Metadata + Watermark' : '🔒 Remove Metadata';
+        scrubberBtn.title = watermarkEnabled ? 'Remove Metadata and Add Watermark' : 'Remove Metadata from image';
+        scrubberBtn.style.cssText = `
+        position: absolute !important;
+        bottom: 65px !important;
+        left: 30px !important;
+        z-index: 1000 !important;
+        font-size: 13px !important;
+        padding: 6px 12px !important;
+        border-radius: 4px !important;
+        background-color: rgb(16, 185, 129) !important;
+        color: white !important;
+        border: none !important;
+        cursor: pointer !important;
+        opacity: 1.0 !important;
+        transition: opacity 0.2s !important;
+        box-shadow: rgba(0, 0, 0, 0.2) 0px 2px 4px !important;
+        `;
+        scrubberBtn.addEventListener('mouseenter', () => {
+            scrubberBtn.style.opacity = '1';
+        });
+
+        scrubberBtn.addEventListener('mouseleave', () => {
+            scrubberBtn.style.opacity = '1';
+        });
+
+scrubberBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const imageUrl = imgElement.src;
+    const filename = 'novelai-no-metadata-' + Date.now() + '.png';
+    downloadImageScrubbedManually(imageUrl, filename);
+});
+        parentContainer.appendChild(scrubberBtn);
+
+        imgElement.dataset.scrubberButtonAdded = 'true';
+    }
+
+    function observeImages() {
+        const imageObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.addedNodes) {
+                    for (let i = 0; i < mutation.addedNodes.length; i++) {
+                        const node = mutation.addedNodes[i];
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            if (node.tagName === 'IMG' && node.classList.contains('image-grid-image')) {
+                                addMetadataRemoverButtonToImage(node);
+                            }
+                            const images = node.querySelectorAll && node.querySelectorAll('img.image-grid-image');
+                            if (images) {
+                                for (let j = 0; j < images.length; j++) {
+                                    addMetadataRemoverButtonToImage(images[j]);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
+        imageObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        const existingImages = document.querySelectorAll('img.image-grid-image');
+        for (let i = 0; i < existingImages.length; i++) {
+            addMetadataRemoverButtonToImage(existingImages[i]);
+        }
+    }
+
+    function initMetadataScrubber() {
+        observeImages();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function() {
+            setTimeout(() => {
+                addImageZoomFeature();
+                initMetadataScrubber();
+            }, 1000);
+        });
+    } else {
+        setTimeout(() => {
+            addImageZoomFeature();
+            initMetadataScrubber();
+        }, 1000);
+    }
 
 })();
